@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "WinIsland",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.winisland.app",
   "build": {
     "frontendDist": "../dist",
@@ -27,6 +27,18 @@
         "maximizable": false,
         "minimizable": false,
         "closable": false,
+        "fullscreen": false
+      },
+      {
+        "label": "settings",
+        "title": "WinIsland 设置",
+        "url": "index.html#/settings",
+        "width": 880,
+        "height": 620,
+        "minWidth": 720,
+        "minHeight": 520,
+        "visible": false,
+        "center": true,
         "fullscreen": false
       }
     ],
