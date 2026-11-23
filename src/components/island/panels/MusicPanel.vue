@@ -29,81 +29,125 @@ function toggle() {
 </script>
 
 <template>
-  <!-- 音乐面板：SMTC 读取本机播放器（网易云/QQ音乐等）状态 -->
-  <div class="flex h-full flex-col items-center justify-center gap-4">
+  <!-- 音乐面板：左封面 / 右曲名进度与控制（SMTC 读取本机播放器） -->
+  <div class="flex h-full flex-col items-center justify-center gap-3">
     <!-- 空状态：无媒体会话 -->
     <template v-if="!hasTrack">
-      <div
-        class="flex size-16 items-center justify-center rounded-2xl border border-white/10 bg-white/5"
-      >
-        <Music class="size-8 text-white/40" aria-hidden="true" />
+      <div class="flex size-14 items-center justify-center rounded-2xl border border-border bg-muted">
+        <Music class="size-7 text-muted-foreground" aria-hidden="true" />
       </div>
       <div class="text-center">
-        <p class="text-sm font-medium text-white/80">未在播放</p>
-        <p class="mt-1 text-xs text-white/50">
-          在网易云音乐、QQ音乐等播放器开始播放后自动显示
+        <p class="text-sm font-medium">{{ music.error ? '播放器状态不可用' : '未在播放' }}</p>
+        <p class="mt-1 text-xs text-muted-foreground">
+          {{ music.error ? '无法读取播放器状态，请稍后重试' : '在播放器开始播放后自动显示' }}
         </p>
       </div>
     </template>
 
     <!-- 播放中 / 有会话 -->
     <template v-else>
-      <div
-        class="flex size-20 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600"
-      >
-        <Music class="size-9 text-white" aria-hidden="true" />
-      </div>
-      <div class="max-w-full text-center">
-        <p class="truncate text-base font-semibold text-white">{{ music.state!.title }}</p>
-        <p class="mt-0.5 truncate text-xs text-white/60">
-          {{ music.state!.artist || '未知歌手' }}
-        </p>
-      </div>
-
-      <!-- 进度条 -->
-      <div class="w-full max-w-md">
-        <div class="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-          <div
-            class="h-full rounded-full bg-violet-500 transition-[width] duration-500"
-            :style="{ width: `${progressPct}%` }"
-          />
+      <div class="flex w-full items-center gap-4">
+        <!-- 左：专辑封面（加载失败回退占位图标） -->
+        <img
+          v-if="music.thumbnail"
+          :src="music.thumbnail"
+          class="size-24 shrink-0 rounded-xl object-cover"
+          alt=""
+          @error="music.thumbnail = null"
+        />
+        <div
+          v-else
+          class="flex size-24 shrink-0 items-center justify-center rounded-xl bg-primary"
+        >
+          <Music class="size-10 text-primary-foreground" aria-hidden="true" />
         </div>
-        <div class="mt-1 flex justify-between text-[10px] text-white/50 tabular-nums">
-          <span>{{ fmt(music.state!.position_secs) }}</span>
-          <span>{{ fmt(music.state!.duration_secs) }}</span>
-        </div>
-      </div>
 
-      <!-- 播放控制 -->
-      <div class="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          class="size-9 text-white/80 hover:bg-white/10 hover:text-white"
-          aria-label="上一曲"
-          @click="music.control('prev')"
-        >
-          <SkipBack class="size-4" aria-hidden="true" />
-        </Button>
-        <Button
-          size="icon"
-          class="size-11 rounded-full bg-violet-600 text-white hover:bg-violet-500"
-          :aria-label="music.state!.playing ? '暂停' : '播放'"
-          @click="toggle"
-        >
-          <Pause v-if="music.state!.playing" class="size-5" aria-hidden="true" />
-          <Play v-else class="size-5" aria-hidden="true" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          class="size-9 text-white/80 hover:bg-white/10 hover:text-white"
-          aria-label="下一曲"
-          @click="music.control('next')"
-        >
-          <SkipForward class="size-4" aria-hidden="true" />
-        </Button>
+        <!-- 右：曲名 + 进度 + 控制 -->
+        <div class="flex min-w-0 flex-1 flex-col gap-2.5">
+          <div class="min-w-0">
+            <p class="truncate text-lg font-semibold leading-tight" :title="music.state!.title">{{ music.state!.title }}</p>
+            <p class="mt-1 truncate text-xs text-muted-foreground">
+              {{ music.controlError || (music.error ? '状态读取失败，显示上次结果' : `${music.state!.artist || '未知歌手'} · ${music.state!.player || '未知播放器'}`) }}
+            </p>
+          </div>
+
+          <!-- 进度条（播放器未上报时间轴时显示不可用提示） -->
+          <div class="w-full">
+            <div
+              v-if="music.state!.duration_secs > 0"
+              class="h-2 w-full overflow-hidden rounded-full bg-muted"
+            >
+              <div
+                class="h-full rounded-full bg-primary transition-[width] duration-500"
+                :style="{ width: `${progressPct}%` }"
+              />
+            </div>
+            <div
+              v-else
+              class="h-2 w-full overflow-hidden rounded-full bg-muted"
+              aria-label="播放器未提供播放进度"
+            >
+              <div class="indeterminate h-full w-1/4 rounded-full bg-primary/60" />
+            </div>
+            <div class="mt-1.5 flex justify-between text-xs text-muted-foreground tabular-nums">
+              <template v-if="music.state!.duration_secs > 0">
+                <span>{{ fmt(music.state!.position_secs) }}</span>
+                <span>{{ fmt(music.state!.duration_secs) }}</span>
+              </template>
+              <span v-else class="w-full text-center">该播放器未上报播放进度</span>
+            </div>
+          </div>
+
+          <!-- 播放控制 -->
+          <div class="flex items-center justify-center gap-4 pt-1.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              class="size-10 hover:bg-accent"
+              aria-label="上一曲"
+              :disabled="!music.state!.can_prev"
+              @click="music.control('prev')"
+            >
+              <SkipBack class="size-5" aria-hidden="true" />
+            </Button>
+            <Button
+              size="icon"
+              class="size-11 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90"
+              :aria-label="music.state!.playing ? '暂停' : '播放'"
+              :disabled="music.state!.playing ? !music.state!.can_pause : !music.state!.can_play"
+              @click="toggle"
+            >
+              <Pause v-if="music.state!.playing" class="size-5" aria-hidden="true" />
+              <Play v-else class="size-5" aria-hidden="true" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              class="size-10 hover:bg-accent"
+              aria-label="下一曲"
+              :disabled="!music.state!.can_next"
+              @click="music.control('next')"
+            >
+              <SkipForward class="size-5" aria-hidden="true" />
+            </Button>
+          </div>
+        </div>
       </div>
     </template>
   </div>
 </template>
+
+<style scoped>
+/* 未知进度的往复流动画 */
+.indeterminate {
+  animation: indeterminate 1.6s ease-in-out infinite alternate;
+}
+@keyframes indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(400%);
+  }
+}
+</style>

@@ -1,103 +1,133 @@
 <script lang="ts" setup>
-import { computed } from 'vue'
-import { Pause, Play, RotateCcw, Timer } from 'lucide-vue-next'
+import { computed, ref, watch } from 'vue'
+import { ChevronRight, Coffee, Pause, Play, Briefcase, RotateCcw } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { usePomodoroStore } from '@/stores/pomodoro'
 import { useSettingsStore } from '@/stores/settings'
 
 const pomodoro = usePomodoroStore()
 const settings = useSettingsStore()
 
-const WORK_OPTIONS = [15, 25, 45, 60]
+const WORK_OPTIONS = [10, 15, 20, 25]
 const BREAK_OPTIONS = [3, 5, 10, 15]
 
-const display = computed(() => pomodoro.format(pomodoro.remainingSecs))
-const phaseLabel = computed(() =>
-  pomodoro.phase === 'break' ? '休息中' : pomodoro.phase === 'work' ? '专注中' : '准备开始',
+/** 空闲时由 Tabs 决定即将开始的阶段；运行中跟随实际阶段 */
+const idleMode = ref<'work' | 'break'>('work')
+const activeMode = computed(() => (pomodoro.phase === 'idle' ? idleMode.value : pomodoro.phase))
+
+/** 当前档位分钟数（空闲时改档即改偏好） */
+const minutes = computed(() =>
+  activeMode.value === 'work' ? settings.prefs.pomodoroWorkMin : settings.prefs.pomodoroBreakMin,
+)
+
+function cycleDuration() {
+  const options = activeMode.value === 'work' ? WORK_OPTIONS : BREAK_OPTIONS
+  const key = activeMode.value === 'work' ? 'pomodoroWorkMin' : 'pomodoroBreakMin'
+  const idx = options.indexOf(settings.prefs[key])
+  settings.set(key, options[(idx + 1) % options.length]!)
+}
+
+/** 阶段标签（空闲时显示所选档位） */
+const phaseLabel = computed(() => {
+  if (pomodoro.phase === 'break') return '休息中'
+  if (pomodoro.phase === 'work') return '专注中'
+  return activeMode.value === 'work' ? '准备专注' : '准备休息'
+})
+
+const display = computed(() => {
+  if (pomodoro.phase === 'idle') return pomodoro.format(minutes.value * 60)
+  return pomodoro.format(pomodoro.remainingSecs)
+})
+
+function start() {
+  if (pomodoro.phase === 'idle') { pomodoro.reset(); pomodoro.startPhase(activeMode.value) }
+  else pomodoro.running ? pomodoro.pause() : pomodoro.start()
+}
+
+// 运行结束回到空闲时，Tabs 回到专注
+watch(
+  () => pomodoro.phase,
+  (phase, old) => {
+    if (phase === 'idle' && old && old !== 'idle') idleMode.value = 'work'
+  },
 )
 </script>
 
 <template>
-  <!-- 番茄专注面板 -->
-  <div class="flex h-full flex-col items-center justify-center gap-4">
-    <div class="flex items-center gap-2 text-sm text-white/70">
-      <Timer class="size-4" aria-hidden="true" />
-      {{ phaseLabel }}
+  <!-- 番茄专注面板：顶部 Tabs / 中间时间与档位 / 底部操作 -->
+  <div class="flex h-full flex-col items-center justify-between py-0.5">
+    <!-- 顶部：专注 / 休息 -->
+    <Tabs
+      :model-value="activeMode"
+      @update:model-value="(v) => (idleMode = v as 'work' | 'break')"
+    >
+      <TabsList class="h-8">
+        <TabsTrigger value="work" class="px-4 text-xs" :disabled="pomodoro.phase !== 'idle'">专注</TabsTrigger>
+        <TabsTrigger value="break" class="px-4 text-xs" :disabled="pomodoro.phase !== 'idle'">休息</TabsTrigger>
+      </TabsList>
+    </Tabs>
+
+    <!-- 中间：左图标 / 中时间 / 右阶段文案与档位 -->
+    <div class="flex items-center gap-3">
+      <!-- 左：阶段图标 -->
+      <div
+        class="flex size-14 shrink-0 items-center justify-center rounded-2xl"
+        :class="activeMode === 'break' ? 'bg-emerald-500/15' : 'bg-primary/10'"
+        aria-hidden="true"
+      >
+        <Coffee v-if="activeMode === 'break'" class="size-7 text-emerald-400" />
+        <Briefcase v-else class="size-7 text-primary" />
+      </div>
+
+      <!-- 中：时间 -->
+      <p
+        class="text-5xl font-semibold leading-none tabular-nums"
+        :class="activeMode === 'break' ? 'text-emerald-400' : 'text-foreground'"
+      >
+        {{ display }}
+      </p>
+
+      <!-- 右：阶段文案 + 档位切换 -->
+      <div class="flex min-w-0 flex-col items-start gap-1.5">
+        <span class="text-xs text-muted-foreground">{{ pomodoro.completed ? '全部完成' : pomodoro.running ? phaseLabel : pomodoro.phase !== 'idle' ? '已暂停' : phaseLabel }} · {{ pomodoro.completedRounds }}/{{ settings.prefs.pomodoroRounds }} 轮</span>
+        <Button
+          variant="ghost"
+          class="h-9 gap-0.5 px-1.5 text-sm hover:bg-accent"
+          :disabled="pomodoro.phase !== 'idle'"
+          :aria-label="`切换时长，当前 ${minutes} 分钟`"
+          :title="`切换时长（当前 ${minutes} 分钟）`"
+          @click="cycleDuration"
+        >
+          <span class="text-muted-foreground">{{ minutes }}</span>
+          <span class="text-xs text-muted-foreground">分钟</span>
+          <ChevronRight class="size-4 text-muted-foreground" aria-hidden="true" />
+        </Button>
+      </div>
     </div>
 
-    <p
-      class="text-6xl font-semibold tabular-nums"
-      :class="pomodoro.phase === 'break' ? 'text-emerald-400' : 'text-white'"
-    >
-      {{ display }}
-    </p>
-
+    <!-- 底部：开始 / 重置 -->
     <div class="flex items-center gap-3">
       <Button
         size="sm"
-        class="h-9 bg-violet-600 text-white hover:bg-violet-500"
+        class="h-9 gap-1.5 bg-primary px-5 text-sm text-primary-foreground hover:bg-primary/90"
         :aria-label="pomodoro.running ? '暂停' : '开始'"
-        @click="pomodoro.running ? pomodoro.pause() : pomodoro.start()"
+        @click="start"
       >
         <Pause v-if="pomodoro.running" class="size-4" aria-hidden="true" />
         <Play v-else class="size-4" aria-hidden="true" />
         {{ pomodoro.running ? '暂停' : '开始' }}
       </Button>
-      <Button
+      <AlertDialog><AlertDialogTrigger as-child><Button
         variant="ghost"
         size="sm"
-        class="h-9 text-white/70 hover:bg-white/10 hover:text-white"
-        aria-label="重置"
-        @click="pomodoro.reset()"
+        class="h-9 gap-1.5 px-4 text-sm hover:bg-accent"
+        aria-label="结束并重置"
       >
         <RotateCcw class="size-4" aria-hidden="true" />
-        重置
-      </Button>
-    </div>
-
-    <!-- 时长设置（空闲时修改） -->
-    <div class="flex items-center gap-3 text-xs text-white/60">
-      <div class="flex items-center gap-1.5">
-        <span>专注</span>
-        <Select
-          :model-value="String(settings.prefs.pomodoroWorkMin)"
-          :disabled="pomodoro.phase !== 'idle'"
-          @update:model-value="(v) => settings.set('pomodoroWorkMin', Number(v))"
-        >
-          <SelectTrigger class="h-7 w-20 border-white/15 bg-white/5 text-white">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent class="border-white/10 bg-neutral-900 text-white">
-            <SelectItem v-for="m in WORK_OPTIONS" :key="m" :value="String(m)"
-              >{{ m }} 分钟</SelectItem
-            >
-          </SelectContent>
-        </Select>
-      </div>
-      <div class="flex items-center gap-1.5">
-        <span>休息</span>
-        <Select
-          :model-value="String(settings.prefs.pomodoroBreakMin)"
-          :disabled="pomodoro.phase !== 'idle'"
-          @update:model-value="(v) => settings.set('pomodoroBreakMin', Number(v))"
-        >
-          <SelectTrigger class="h-7 w-20 border-white/15 bg-white/5 text-white">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent class="border-white/10 bg-neutral-900 text-white">
-            <SelectItem v-for="m in BREAK_OPTIONS" :key="m" :value="String(m)"
-              >{{ m }} 分钟</SelectItem
-            >
-          </SelectContent>
-        </Select>
-      </div>
+        结束
+      </Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>结束本轮计时？</AlertDialogTitle><AlertDialogDescription>当前进度和已完成轮次会重置。</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction class="bg-destructive text-destructive-foreground" @click="pomodoro.reset()">结束</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   </div>
 </template>

@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useSettingsStore } from './settings'
+import { nextPomodoroPhase, type PomodoroPhase } from '@/lib/pomodoro'
 
-export type PomodoroPhase = 'idle' | 'work' | 'break'
+export type { PomodoroPhase } from '@/lib/pomodoro'
 
 export const usePomodoroStore = defineStore('pomodoro', () => {
   const settings = useSettingsStore()
@@ -10,6 +11,9 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
   const phase = ref<PomodoroPhase>('idle')
   const running = ref(false)
   const remainingSecs = ref(0)
+  const completedRounds = ref(0)
+  const completed = ref(false)
+  let deadline = 0
 
   let timer: number | undefined
   void timer
@@ -19,14 +23,16 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     remainingSecs.value =
       (next === 'work' ? settings.prefs.pomodoroWorkMin : settings.prefs.pomodoroBreakMin) * 60
     running.value = true
+    deadline = Date.now() + remainingSecs.value * 1000
   }
 
   function start() {
     if (phase.value === 'idle') startPhase('work')
-    else running.value = true
+    else { deadline = Date.now() + remainingSecs.value * 1000; running.value = true }
   }
 
   function pause() {
+    if (running.value) remainingSecs.value = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
     running.value = false
   }
 
@@ -34,14 +40,18 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     running.value = false
     phase.value = 'idle'
     remainingSecs.value = 0
+    completedRounds.value = 0
+    completed.value = false
   }
 
   timer = window.setInterval(() => {
     if (!running.value || phase.value === 'idle') return
-    remainingSecs.value -= 1
+    remainingSecs.value = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
     if (remainingSecs.value <= 0) {
-      if (phase.value === 'work') startPhase('break')
-      else reset()
+      const next = nextPomodoroPhase(phase.value, completedRounds.value, settings.prefs.pomodoroRounds)
+      completedRounds.value = next.completedRounds
+      if (next.phase === 'idle') { running.value = false; phase.value = 'idle'; completed.value = next.completed }
+      else startPhase(next.phase)
     }
   }, 1000)
 
@@ -58,6 +68,8 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     phase,
     running,
     remainingSecs,
+    completedRounds,
+    completed,
     start,
     pause,
     reset,

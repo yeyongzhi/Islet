@@ -1,6 +1,8 @@
 import { invoke } from '@tauri-apps/api/core'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { emit, listen } from '@tauri-apps/api/event'
+import { useSettingsStore } from '@/stores/settings'
 
 export interface Counters {
   date: string
@@ -23,8 +25,57 @@ function blank(): Counters {
 export const useHealthStore = defineStore('health', () => {
   const counters = ref<Counters>(blank())
   const loaded = ref(false)
+  const settings = useSettingsStore()
+  const history = ref<Counters[]>([])
+  const historyError = ref('')
+  let historyLoaded = false
+  let historyListening = false
+  let counterListening = false
+  const source = crypto.randomUUID()
+
+  async function loadHistory() {
+    if (!historyListening) {
+      historyListening = true
+      await listen<Counters[]>('health://history-updated', (event) => { history.value = event.payload }).catch(() => { historyListening = false })
+    }
+    try {
+      const raw = await invoke<string | null>('load_panel_data', { key: 'health-history' })
+      const parsed = raw ? JSON.parse(raw) : []
+      if (!Array.isArray(parsed)) throw new Error('健康历史格式无效')
+      history.value = parsed.filter((item): item is Counters => !!item && typeof item.date === 'string' && ['water', 'pee', 'poo'].every((key) => typeof item[key] === 'number'))
+      historyError.value = ''
+      historyLoaded = true
+    } catch { historyError.value = '健康历史读取失败，原数据已保留'; historyLoaded = false }
+  }
+
+  async function saveHistory(snapshot: Counters) {
+    if (!settings.prefs.healthHistoryEnabled) return
+    if (!historyLoaded) await loadHistory()
+    if (!historyLoaded) return
+    const next = [...history.value.filter((entry) => entry.date !== snapshot.date), snapshot].sort((a, b) => a.date.localeCompare(b.date)).slice(-30)
+    try {
+      await invoke('save_panel_data', { key: 'health-history', json: JSON.stringify(next) })
+      history.value = next
+      await emit('health://history-updated', next)
+      historyError.value = ''
+    } catch { historyError.value = '健康历史保存失败' }
+  }
+
+  async function clearHistory() {
+    await invoke('save_panel_data', { key: 'health-history', json: '[]' })
+    history.value = []
+    historyLoaded = true
+    await emit('health://history-updated', [])
+  }
 
   async function load() {
+    if (!counterListening) {
+      counterListening = true
+      await listen<{ source: string; counters: Counters }>('health://counters-updated', (event) => {
+        if (event.payload.source !== source && event.payload.counters.date === today()) counters.value = event.payload.counters
+      }).catch(() => { counterListening = false })
+    }
+    let valid = true
     try {
       const raw = await invoke<string | null>('load_counters')
       if (raw) {
@@ -33,23 +84,32 @@ export const useHealthStore = defineStore('health', () => {
         counters.value = parsed.date === today() ? parsed : blank()
       }
     } catch {
-      // 读取失败用默认值，不覆盖损坏文件
+      valid = false
     }
     loaded.value = true
-    await persist()
+    if (valid) await persist()
+    if (settings.prefs.healthHistoryEnabled) await loadHistory()
   }
 
-  async function persist() {
-    try {
-      await invoke('save_counters', { json: JSON.stringify(counters.value) })
-    } catch {
-      // 非 Tauri 环境忽略
-    }
+  let saveQueue: Promise<void> = Promise.resolve()
+  function persist() {
+    const snapshot = { ...counters.value }
+    saveQueue = saveQueue.then(async () => {
+      try {
+        await invoke('save_counters', { json: JSON.stringify(snapshot) })
+        await emit('health://counters-updated', { source, counters: snapshot })
+        await saveHistory(snapshot)
+      } catch {
+        // 非 Tauri 环境忽略
+      }
+    })
+    return saveQueue
   }
 
   function ensureToday() {
     if (counters.value.date !== today()) {
       counters.value = blank()
+      void persist()
     }
   }
 
@@ -82,5 +142,5 @@ export const useHealthStore = defineStore('health', () => {
     void persist()
   }
 
-  return { counters, loaded, load, addWater, removeWater, addPee, addPoo, resetAll }
+  return { counters, loaded, history, historyError, load, loadHistory, clearHistory, ensureToday, addWater, removeWater, addPee, addPoo, resetAll }
 })

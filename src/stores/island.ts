@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { useSettingsStore } from './settings'
+import { useSettingsStore, PANEL_SIZES } from './settings'
 import { invoke } from '@tauri-apps/api/core'
 
 const WEEKDAY_TEXT = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'] as const
@@ -29,13 +29,17 @@ export const useIslandStore = defineStore('island', () => {
   })
 
   /** 切换展开状态，并按当前停靠边通知 Tauri 调整窗口；浏览器开发环境下静默降级 */
-  function setExpanded(value: boolean) {
+  function setExpanded(value: boolean, sizeOverride?: { w: number; h: number }) {
     if (expanded.value === value) return
     expanded.value = value
+    const size = PANEL_SIZES[settings.prefs.panelSize] ?? PANEL_SIZES.medium
     invoke('set_island_layout', {
       edge: settings.prefs.islandEdge,
       expanded: value,
       offset: settings.prefs.islandOffset,
+      panelWidth: sizeOverride?.w ?? size.w,
+      edgeGap: settings.prefs.edgeAttached ? 0 : 8,
+      panelHeight: sizeOverride?.h ?? size.h,
     }).catch(() => {
       // 非 Tauri 环境（浏览器直接访问）没有窗口命令
     })

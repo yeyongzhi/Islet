@@ -15,24 +15,57 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { useClipboardStore } from '@/stores/clipboard'
 import { useHealthStore } from '@/stores/health'
+import { useSettingsStore } from '@/stores/settings'
+import { useWeatherStore } from '@/stores/weather'
 
 const health = useHealthStore()
 const clipboard = useClipboardStore()
+const settings = useSettingsStore()
+const weather = useWeatherStore()
 const dataDir = ref('')
+const cityDraft = ref('')
 
 onMounted(async () => {
+  cityDraft.value = settings.prefs.weatherCity
+  await health.load()
   try {
     dataDir.value = await invoke<string>('get_data_dir')
   } catch {
     dataDir.value = ''
   }
 })
+
+function applyCity() {
+  const city = cityDraft.value.trim()
+  if (!city || city === settings.prefs.weatherCity) return
+  settings.set('weatherCity', city)
+  weather.changeCity(city)
+  toast(`天气城市已保存为「${city}」`)
+}
 </script>
 
 <template>
   <div class="flex max-w-xl flex-col gap-6">
+    <section class="flex flex-col gap-3">
+      <h3 class="text-sm font-semibold">天气城市</h3>
+      <div class="flex items-center gap-2">
+        <Input
+          v-model="cityDraft"
+          class="w-48"
+          placeholder="输入城市名，如：杭州"
+          aria-label="天气城市"
+          @keydown.enter="applyCity"
+        />
+        <Button size="sm" @click="applyCity">保存</Button>
+      </div>
+      <p class="text-xs text-muted-foreground">
+        灵动岛天气面板使用 Open-Meteo 查询该城市的实时与未来 6 天预报；保存后重新打开天气面板生效。
+      </p>
+    </section>
+
     <section class="flex flex-col gap-2">
       <h3 class="text-sm font-semibold">数据存储位置</h3>
       <p class="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
@@ -85,14 +118,13 @@ onMounted(async () => {
         <div class="flex items-center justify-between rounded-lg border px-3 py-2.5">
           <div>
             <p class="text-sm">剪贴板历史</p>
-            <p class="text-xs text-muted-foreground">当前 {{ clipboard.items.length }} 条（仅本次运行期间）</p>
+            <p class="text-xs text-muted-foreground">仅本次运行期间；清空会同步至灵动岛窗口</p>
           </div>
           <AlertDialog>
             <AlertDialogTrigger as-child>
               <Button
                 variant="destructive"
                 size="sm"
-                :disabled="clipboard.items.length === 0"
                 aria-label="清空剪贴板历史"
                 >清空</Button
               >
@@ -101,7 +133,7 @@ onMounted(async () => {
               <AlertDialogHeader>
                 <AlertDialogTitle>清空剪贴板历史？</AlertDialogTitle>
                 <AlertDialogDescription>
-                  将删除全部 {{ clipboard.items.length }} 条历史记录，此操作不可恢复。
+                  将删除本次运行中的全部历史记录，此操作不可恢复。
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

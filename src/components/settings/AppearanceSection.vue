@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { THEME_COLORS, useSettingsStore, type AppearanceMode } from '@/stores/settings'
+import { PANEL_SIZES, THEME_COLORS, useSettingsStore, type AppearanceMode, type PanelSize } from '@/stores/settings'
 
 const settings = useSettingsStore()
 
@@ -16,6 +16,11 @@ const MODE_OPTIONS: { value: AppearanceMode; label: string }[] = [
   { value: 'light', label: '亮色' },
   { value: 'dark', label: '暗色' },
 ]
+
+const PANEL_SIZE_OPTIONS = (Object.keys(PANEL_SIZES) as PanelSize[]).map((key) => ({
+  value: key,
+  label: PANEL_SIZES[key].label,
+}))
 
 const RADIUS_OPTIONS = [
   { value: '0', label: '直角 · 0 px' },
@@ -49,7 +54,25 @@ const FONT_OPTIONS = [
         </SelectContent>
       </Select>
       <p class="text-xs text-muted-foreground">
-        灵动岛悬浮窗为营造沉浸氛围固定使用暗色；此设置作用于设置窗口与后续新增的主界面。
+        外观模式即时作用于灵动岛与设置窗口；跟随系统时监听系统变化。
+      </p>
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h3 class="text-sm font-semibold">面板尺寸</h3>
+      <Select
+        :model-value="settings.prefs.panelSize"
+        @update:model-value="(v) => settings.set('panelSize', v as PanelSize)"
+      >
+        <SelectTrigger class="w-48"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem v-for="s in PANEL_SIZE_OPTIONS" :key="s.value" :value="s.value">
+            {{ s.label }} · {{ PANEL_SIZES[s.value].w }} × {{ PANEL_SIZES[s.value].h }} px
+          </SelectItem>
+        </SelectContent>
+      </Select>
+      <p class="text-xs text-muted-foreground">
+        灵动岛展开面板的大小；内容随档位整体缩放，改选后悬停展开即可看到效果。
       </p>
     </section>
 

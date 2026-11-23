@@ -72,7 +72,7 @@ export async function fetchWeather(city: string): Promise<WeatherBundle> {
     `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}` +
     '&current=temperature_2m,weather_code' +
     '&daily=weather_code,temperature_2m_max,temperature_2m_min' +
-    '&forecast_days=6&timezone=auto'
+    '&forecast_days=8&timezone=auto'
   const res = await fetch(url)
   if (!res.ok) throw new Error('天气请求失败，请稍后重试')
   const d = (await res.json()) as {

@@ -39,7 +39,10 @@
         "minHeight": 520,
         "visible": false,
         "center": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false
       }
     ],
     "security": {
