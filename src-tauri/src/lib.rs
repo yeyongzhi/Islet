@@ -1035,7 +1035,7 @@ pub fn run() {
             start_restore_hotkey(app.handle().clone());
 
             // 系统托盘：提供退出入口（无边框窗口没有标题栏关闭按钮）
-            let quit = MenuItem::with_id(app, "quit", "退出 WinIsland", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "退出 Islet 灵岛", true, None::<&str>)?;
             let show = MenuItem::with_id(app, "show", "显示灵动岛", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "打开设置", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &settings, &quit])?;
@@ -1045,7 +1045,7 @@ pub fn run() {
                         .expect("default window icon must exist")
                         .clone(),
                 )
-                .tooltip("WinIsland")
+                .tooltip("Islet 灵岛")
                 .menu(&menu)
                 .show_menu_on_left_click(true)
                 .on_menu_event(|app, event| {

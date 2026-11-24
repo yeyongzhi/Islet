@@ -5,7 +5,6 @@ import type { DateValue } from 'reka-ui'
 import { CloudSun, Sun } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 import { Calendar } from '@/components/ui/calendar'
 import { weatherText } from '@/services/openMeteo'
 import { useWeatherStore } from '@/stores/weather'
@@ -40,10 +39,10 @@ const summary = computed(() => {
 
 <template>
   <!-- 日历面板（默认）：左天气概要 / 右当月日历 -->
-  <div class="flex h-full items-stretch gap-2">
-    <div class="flex w-36 shrink-0 flex-col justify-center">
-      <Card class="h-full border-border bg-muted/50">
-        <CardContent class="flex h-full flex-col justify-center gap-2 px-3.5 py-3">
+  <div class="flex h-full min-h-0 items-stretch gap-2">
+    <div class="flex w-40 min-h-0 shrink-0 flex-col">
+      <Card class="h-full min-h-0 border-border bg-muted/50">
+        <CardContent class="flex h-full flex-col justify-center gap-3 px-4 py-4">
           <div class="flex items-center gap-3">
             <component
               :is="weather.data ? CloudSun : Sun"
@@ -67,8 +66,6 @@ const summary = computed(() => {
         </CardContent>
       </Card>
     </div>
-
-    <Separator orientation="vertical" class="mx-0.5" />
 
     <!-- 右侧：当月日历（紧凑样式适配面板高度，无滚动条，超出部分裁剪） -->
     <Card class="relative min-w-0 flex-1 overflow-hidden border-border bg-muted/50">

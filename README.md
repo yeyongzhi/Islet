@@ -1,30 +1,27 @@
-# WinIsland
+# Islet（灵岛）
 
-Windows 桌面灵动岛 —— 在屏幕边缘提供一枚常驻悬浮胶囊，展开即见日历、天气、音乐、专注时钟与健康小工具。
+![Islet（灵岛）应用图标](./src-tauri/icons/128x128.png)
+
+Windows 桌面灵动岛与轻量信息工具 —— 重要信息，一眼可见。
 
 ## 软件说明
 
-WinIsland 是一款 Windows 桌面常驻小部件：默认收起为屏幕边缘的小胶囊（显示时间/番茄钟与天气），鼠标悬停后展开为多面板信息站，支持四边停靠与拖动换位。适合希望在桌面快速处理轻量信息的用户。
+Islet（灵岛）是一款 Windows 桌面常驻小部件：默认收起为屏幕边缘的小胶囊（显示时间/番茄钟与天气），鼠标悬停后展开为多面板信息站，支持四边停靠与拖动换位。它帮助用户快速查看信息并处理轻量任务。
 
 ## 当前版本
 
-`v0.2.0`（开发中，尚未发布）
+`v0.1.0-beta1`（Beta 预览版，尚未正式发布）
 
 ## 最新版本
 
-暂未发布正式版本。发布后将从 GitHub Releases 提供 Windows 安装包下载；发布入口：`https://github.com/<owner>/WinIsland/releases/latest`
+尚无正式版本发布。当前 Beta 预览版的 [发布页面](https://github.com/yeyongzhi/Islet/releases/tag/v0.1.0-beta1)（发布后可在此获取 Windows 安装包）；正式版发布后可从 [GitHub Releases](https://github.com/yeyongzhi/Islet/releases/latest) 下载。
 
 ## 功能清单
 
 - ✅ 顶部/侧边停靠的透明胶囊：时间、番茄钟倒计时与天气概要
 - ✅ 悬停展开 / 移出自动收起，形变动画过渡
-- ✅ 多面板切换（翻页箭头 + 指示点）：
-  - 日历：当月日历 + 天气概要
-  - 天气：Open-Meteo 真实数据，今日详情 + 未来 6 天预报，城市可切换
-  - 音乐：SMTC 读取本机播放器（网易云/QQ 音乐等），曲名/进度/播放控制
-  - 番茄专注：25/5 可调计时，运行时胶囊显示倒计时
-  - 剪贴板：文本历史（50 条），点击回写
-  - 健康：喝水杯数目标进度 + 小手/大手当日计数
+- ✅ 多面板切换与管理：日历、日期时间、时间进度、倒数日、汇率、天气、系统监控、网速、磁盘占用、音乐、番茄专注、剪贴板、中转站、快速启动、下班倒计时、系统信息、久坐提醒、喝水、上厕所和护眼提醒
+- ✅ 天气接入 Open-Meteo；音乐支持系统播放器控制；提供剪贴板历史和本地文件中转
 - ✅ 拖动换位，顶/左/右/底四边吸附，位置跨启动记忆
 - ✅ 设置窗口：外观（模式/主题色/圆角/字号）、数据管理、关于
 - ✅ 系统托盘退出、面板设置菜单
@@ -42,7 +39,7 @@ pnpm tauri dev
 
 ## 开发简介
 
-- `src/` Vue 3 前端（岛胶囊、六个面板、设置窗口）
+- `src/` Vue 3 前端（岛胶囊、多面板、设置窗口）
 - `src-tauri/` Tauri 2 后端（窗口停靠/拖动、SMTC、剪贴板监听、本地持久化）
 - `docs/` VitePress 产品文档站
 
@@ -72,4 +69,4 @@ pnpm --dir docs docs:build  # 构建文档站
 
 ## 联系作者
 
-- GitHub Issues：`https://github.com/<owner>/WinIsland/issues`
+- GitHub Issues：[Islet 问题反馈](https://github.com/yeyongzhi/Islet/issues)

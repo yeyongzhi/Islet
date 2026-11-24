@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import { Clock } from 'lucide-vue-next'
 import { Solar } from 'lunar-typescript'
-import { Card, CardContent } from '@/components/ui/card'
 import { useIslandStore } from '@/stores/island'
 import { useSettingsStore } from '@/stores/settings'
 import { PANEL_OPTIONS } from '@/stores/panels'
@@ -54,20 +53,20 @@ const lunarInfo = computed(() => {
 
 <template>
   <!-- 日期时间面板：图标与时间、日期并列 -->
-  <Card class="h-full gap-0 bg-primary/5 py-0 shadow-none">
-  <CardContent class="flex h-full items-center justify-center gap-4 p-3">
-    <div class="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-      <Clock class="size-4" aria-hidden="true" />
+  <div class="flex h-full items-center gap-5 px-5 py-3">
+    <div class="flex size-20 shrink-0 items-center justify-center rounded-3xl bg-muted text-muted-foreground">
+      <Clock class="size-9" aria-hidden="true" />
     </div>
-    <div class="flex min-w-0 flex-col items-start gap-1">
-      <p class="whitespace-nowrap text-4xl font-semibold leading-none tracking-tight tabular-nums">
+    <div class="flex min-w-0 flex-1 flex-col items-start gap-4">
+      <p class="whitespace-nowrap text-[2.5rem] font-semibold leading-none tracking-tight tabular-nums">
         {{ timeText }}
       </p>
       <p class="whitespace-nowrap text-sm text-muted-foreground">{{ dateText }}</p>
-      <p class="whitespace-nowrap text-xs text-muted-foreground">{{ lunarInfo.date }} · {{ lunarInfo.year }}</p>
-      <p v-if="lunarInfo.occasion" class="max-w-full truncate text-xs text-primary" :title="lunarInfo.occasion">{{ lunarInfo.occasion }}</p>
-      <p v-if="lunarInfo.next" class="max-w-full truncate text-xs text-muted-foreground">{{ lunarInfo.next }}</p>
+      <p class="whitespace-nowrap text-sm text-muted-foreground">{{ lunarInfo.date }} · {{ lunarInfo.year }}</p>
+      <div class="flex max-w-full flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
+        <span v-if="lunarInfo.occasion" class="truncate font-medium text-primary" :title="lunarInfo.occasion">{{ lunarInfo.occasion }}</span>
+        <span v-if="lunarInfo.next" class="truncate text-muted-foreground">{{ lunarInfo.next }}</span>
+      </div>
     </div>
-  </CardContent>
-  </Card>
+  </div>
 </template>

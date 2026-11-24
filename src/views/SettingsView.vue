@@ -70,17 +70,17 @@ function close() {
 </script>
 
 <template>
-  <!-- 无边框窗口壳：整体圆角跟随全局圆角；透明窗口下用 CSS 阴影（系统阴影会使圆角变方角） -->
+  <!-- 无边框窗口壳：透明窗口的圆角由根节点裁切，避免外投影在透明边缘形成灰色晕染 -->
   <div
     class="flex h-screen flex-col overflow-hidden bg-background"
-    :style="{ borderRadius: windowRadius, boxShadow: '0 10px 44px rgba(0, 0, 0, 0.28)' }"
+    :style="{ borderRadius: windowRadius, clipPath: `inset(0 round ${windowRadius})` }"
   >
     <!-- 自绘标题栏：空白区域可拖动移动窗口 -->
     <header
       data-tauri-drag-region
       class="flex h-11 shrink-0 select-none items-center justify-between border-b border-border pl-4"
     >
-      <p data-tauri-drag-region class="text-sm font-medium">WinIsland 设置</p>
+      <p data-tauri-drag-region class="text-sm font-medium">Islet 灵岛 设置</p>
       <div class="flex h-full items-center" @pointerdown.stop>
         <Button
           variant="ghost"

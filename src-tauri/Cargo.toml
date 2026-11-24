@@ -1,10 +1,10 @@
 [package]
-name = "winisland"
-version = "0.2.0"
-description = "WinIsland - a Dynamic Island style desktop widget for Windows"
+name = "islet"
+version = "0.1.0-beta1"
+description = "Islet（灵岛）- Windows 桌面灵动岛与轻量信息工具"
 authors = ["Aurora"]
 license = ""
-repository = ""
+repository = "https://github.com/yeyongzhi/Islet"
 edition = "2024"
 rust-version = "1.90"
 

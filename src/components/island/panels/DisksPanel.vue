@@ -1,10 +1,10 @@
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { useSettingsStore } from '@/stores/settings'
+import { toast } from 'vue-sonner'
 
 interface DiskInfo {
   mount: string
@@ -39,6 +39,14 @@ const percent = (disk: DiskInfo) => Math.min(100, Math.max(0, disk.pct))
 const isLow = (disk: DiskInfo) => disk.available_gb / disk.total_gb * 100 < settings.prefs.diskWarningPercent
 const shortMount = (mount: string) => mount.replace(/[\\/]+$/, '').replace(/:$/, '')
 const capacity = (gb: number) => gb >= 1024 ? `${(gb / 1024).toFixed(1)} TB` : `${gb.toFixed(gb < 10 ? 1 : 0)} GB`
+
+async function openDisk(disk: DiskInfo) {
+  try {
+    await invoke('launch_path', { path: disk.mount })
+  } catch {
+    toast.error(`无法打开 ${shortMount(disk.mount)} 盘`)
+  }
+}
 </script>
 
 <template>
@@ -50,38 +58,38 @@ const capacity = (gb: number) => gb >= 1024 ? `${(gb / 1024).toFixed(1)} TB` : `
       </div>
 
       <!-- 每张卡片宽度按磁盘总容量占比计算；填充宽度代表该盘已用比例。 -->
-      <div class="flex min-h-10 w-full flex-1 gap-0.5" aria-label="各磁盘容量与使用情况">
-        <Card
+      <div class="flex min-h-10 w-full flex-1 gap-4" aria-label="各磁盘容量与使用情况">
+        <Button
           v-for="disk in disks"
           :key="disk.mount"
-          class="relative block min-w-0 overflow-hidden rounded-md border-border bg-muted/40 py-0 shadow-none"
+          type="button"
+          variant="ghost"
+          class="group relative h-auto min-w-0 overflow-hidden rounded-xl border border-border/70 bg-card p-0 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-card hover:shadow-md"
           :style="{ flex: `${disk.total_gb} 1 0%` }"
-          :title="`${shortMount(disk.mount)} · 已用 ${percent(disk).toFixed(0)}% · 可用 ${capacity(disk.available_gb)}`"
+          :title="`打开 ${shortMount(disk.mount)} 盘 · 已用 ${percent(disk).toFixed(0)}% · 可用 ${capacity(disk.available_gb)}`"
+          :aria-label="`打开 ${shortMount(disk.mount)} 盘目录，已用 ${percent(disk).toFixed(0)}%，可用 ${capacity(disk.available_gb)}`"
+          @click="openDisk(disk)"
         >
-          <Progress
-            :model-value="percent(disk)"
-            class="absolute inset-0 h-full w-full rounded-none bg-transparent"
-            :class="isLow(disk) ? 'disk-fill--low' : 'disk-fill--normal'"
-            :aria-label="`${shortMount(disk.mount)} 盘，容量 ${capacity(disk.total_gb)}`"
-            :aria-valuetext="`已用 ${percent(disk).toFixed(0)}%，可用 ${capacity(disk.available_gb)}`"
-          />
-          <div v-if="disk.total_gb / total >= 0.16" class="relative flex h-full min-w-0 flex-col justify-center px-2">
-            <span class="truncate text-xs font-semibold">{{ shortMount(disk.mount) }}</span>
-            <span class="truncate text-xs tabular-nums" :class="isLow(disk) ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'">{{ percent(disk).toFixed(0) }}% 已用</span>
+          <div class="relative flex h-full min-h-24 min-w-0 flex-col justify-between gap-2 p-2">
+            <div class="flex min-w-0 items-center justify-between gap-1">
+              <span class="truncate text-base font-bold tracking-tight">{{ shortMount(disk.mount) }}:</span>
+              <span class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums" :class="isLow(disk) ? 'bg-red-500/15 text-red-600 dark:text-red-400' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'">{{ percent(disk).toFixed(0) }}%</span>
+            </div>
+            <div class="flex min-w-0 flex-col gap-1 text-left text-[10px] leading-tight tabular-nums">
+              <div class="flex min-w-0 flex-col gap-0.5"><span class="text-muted-foreground">可用</span><span class="truncate font-medium">{{ capacity(disk.available_gb) }}</span></div>
+              <div class="flex min-w-0 flex-col gap-0.5"><span class="text-muted-foreground">容量</span><span class="truncate font-medium">{{ capacity(disk.total_gb) }}</span></div>
+            </div>
+            <Progress
+              :model-value="percent(disk)"
+              class="relative h-1.5 rounded-full bg-muted"
+              :class="isLow(disk) ? 'disk-fill--low' : 'disk-fill--normal'"
+              :aria-label="`${shortMount(disk.mount)} 盘，容量 ${capacity(disk.total_gb)}`"
+              :aria-valuetext="`已用 ${percent(disk).toFixed(0)}%，可用 ${capacity(disk.available_gb)}`"
+            />
           </div>
-        </Card>
+        </Button>
       </div>
 
-      <ScrollArea class="min-h-0 shrink-0" :style="{ height: `${Math.min(disks.length, 3) * 20}px` }">
-        <div class="flex flex-col pr-2">
-          <div v-for="disk in disks" :key="disk.mount" class="flex h-5 min-w-0 items-center gap-2 text-xs tabular-nums">
-            <span class="size-1.5 shrink-0 rounded-full" :class="isLow(disk) ? 'bg-red-500/70' : 'bg-emerald-500/60'" />
-            <span class="min-w-0 truncate font-medium">{{ shortMount(disk.mount) }}</span>
-            <span class="ml-auto shrink-0 text-muted-foreground">{{ capacity(disk.total_gb) }}</span>
-            <span class="shrink-0" :class="isLow(disk) ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'">可用 {{ capacity(disk.available_gb) }}</span>
-          </div>
-        </div>
-      </ScrollArea>
     </template>
     <p v-else class="m-auto text-center text-sm text-muted-foreground">
       {{ status === 'loading' ? '正在读取磁盘信息…' : status === 'error' ? '磁盘信息读取失败' : '未发现可用磁盘' }}
@@ -91,10 +99,10 @@ const capacity = (gb: number) => gb >= 1024 ? `${(gb / 1024).toFixed(1)} TB` : `
 
 <style scoped>
 .disk-fill--normal :deep([data-slot='progress-indicator']) {
-  background-color: rgb(16 185 129 / 0.2);
+  background: linear-gradient(90deg, rgb(16 185 129 / 0.7), rgb(52 211 153 / 0.95));
 }
 
 .disk-fill--low :deep([data-slot='progress-indicator']) {
-  background-color: rgb(239 68 68 / 0.25);
+  background: linear-gradient(90deg, rgb(239 68 68 / 0.75), rgb(248 113 113 / 0.95));
 }
 </style>

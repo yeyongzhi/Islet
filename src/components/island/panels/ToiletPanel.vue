@@ -21,33 +21,36 @@ onMounted(() => health.load())
     </div>
 
     <!-- 右：内容（纵向铺满，消除上下留白） -->
-    <div class="flex min-w-0 flex-1 self-stretch flex-col justify-between py-0.5">
-      <p class="text-lg font-semibold">上厕所</p>
+    <div class="flex min-w-0 flex-1 flex-col justify-center gap-4 py-0.5">
+      <div class="flex items-baseline gap-2">
+        <p class="text-lg font-semibold">上厕所</p>
+        <p class="text-xs text-muted-foreground">每日零点自动清零</p>
+      </div>
 
-      <div class="flex flex-col gap-2">
-        <div class="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
+      <div class="grid grid-cols-2 gap-2">
+        <div class="flex min-w-0 flex-col items-start gap-1 rounded-lg border border-border p-2">
           <span class="text-sm">小手</span>
-          <span class="flex-1 pl-4 text-sm text-muted-foreground tabular-nums"
+          <span class="text-sm text-muted-foreground tabular-nums"
             >{{ health.counters.pee }} 次</span
           >
           <Button
             variant="ghost"
             size="sm"
-            class="h-8 hover:bg-accent"
+            class="h-8 w-full hover:bg-accent"
             aria-label="记录一次小手"
             @click="health.addPee()"
             >+1</Button
           >
         </div>
-        <div class="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
+        <div class="flex min-w-0 flex-col items-start gap-1 rounded-lg border border-border p-2">
           <span class="text-sm">大手</span>
-          <span class="flex-1 pl-4 text-sm text-muted-foreground tabular-nums"
+          <span class="text-sm text-muted-foreground tabular-nums"
             >{{ health.counters.poo }} 次</span
           >
           <Button
             variant="ghost"
             size="sm"
-            class="h-8 hover:bg-accent"
+            class="h-8 w-full hover:bg-accent"
             aria-label="记录一次大手"
             @click="health.addPoo()"
             >+1</Button
@@ -55,7 +58,6 @@ onMounted(() => health.load())
         </div>
       </div>
 
-      <p class="text-xs text-muted-foreground">每日零点自动清零</p>
     </div>
   </div>
 </template>

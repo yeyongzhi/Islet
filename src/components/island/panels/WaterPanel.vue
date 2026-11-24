@@ -26,19 +26,19 @@ const GOAL_OPTIONS = [6, 8, 10, 12]
 
 <template>
   <!-- 喝水面板：左大水滴 / 右计数与操作（当日累计，跨天自动清零） -->
-  <div class="flex h-full items-center gap-5">
+  <div class="flex h-full min-h-0 items-center gap-4 px-3 py-1">
     <!-- 左：水滴标识 -->
     <div
-      class="flex size-24 shrink-0 items-center justify-center rounded-2xl bg-sky-500/15"
+      class="flex size-24 shrink-0 items-center justify-center rounded-3xl bg-sky-500/15"
       aria-hidden="true"
     >
-      <Droplets class="size-12 text-sky-400" />
+      <Droplets class="size-9 text-sky-400" />
     </div>
 
     <!-- 右：内容（纵向铺满，消除上下留白） -->
-    <div class="flex min-w-0 flex-1 self-stretch flex-col justify-between gap-2 py-0.5">
+    <div class="flex min-w-0 flex-1 flex-col justify-center gap-3">
       <div class="flex items-baseline justify-between">
-        <p class="text-lg font-semibold">喝水</p>
+        <p class="text-base font-semibold">今日饮水</p>
         <p class="text-sm text-muted-foreground tabular-nums">
           <span class="text-3xl font-semibold text-foreground">{{ health.counters.water }}</span>
           / {{ settings.prefs.waterGoal }} 杯
@@ -56,7 +56,7 @@ const GOAL_OPTIONS = [6, 8, 10, 12]
         <div class="flex items-center gap-1.5">
           <Button
             size="sm"
-            class="h-9 bg-sky-600 text-sm text-white hover:bg-sky-500"
+            class="h-9 rounded-full bg-sky-600 text-sm text-white hover:bg-sky-500"
             aria-label="喝了一杯水"
             @click="health.addWater()"
           >
@@ -64,9 +64,9 @@ const GOAL_OPTIONS = [6, 8, 10, 12]
             +1 杯
           </Button>
           <Button
-            variant="ghost"
+            variant="secondary"
             size="icon"
-            class="size-9 hover:bg-accent"
+            class="size-9 rounded-full"
             aria-label="减一杯（记错时撤销）"
             @click="health.removeWater()"
           >

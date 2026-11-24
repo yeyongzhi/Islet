@@ -61,6 +61,14 @@ const panelSize = computed(() => PANEL_SIZES[settings.prefs.panelSize] ?? PANEL_
 /** 壳层视觉状态：驱动胶囊 ↔ 面板的形变动画 */
 const open = ref(false)
 const pinned = ref(false)
+watch(
+  [open, () => settings.prefs.fontSize],
+  ([expanded, fontSize]) => {
+    // 展开时按全局字号缩放 rem 字体；收起胶囊继续使用紧凑字号。
+    document.documentElement.style.fontSize = expanded ? `${(16 * fontSize) / 14}px` : '13px'
+  },
+  { immediate: true },
+)
 /** 收起流程的定时器：先延迟确认离开，动画结束后再缩小窗口 */
 let collapseTimer: number | undefined
 let leaveTimer: number | undefined
@@ -169,7 +177,7 @@ function handleEnter() {
 
 function handleLeave() {
   window.clearTimeout(hoverTimer)
-  if (!open.value || notify.current || pinned.value) return
+  if (!open.value || pinned.value) return
   collapseSoon()
 }
 
@@ -181,7 +189,7 @@ function collapseSoon() {
   leaveTimer = window.setTimeout(() => {
     if (!open.value || pinned.value) return
     // 菜单或对话框可能在离开事件之后才挂载；保持窗口展开直到浮层关闭。
-    if (document.querySelector('[data-reka-popper-content-wrapper], [role="dialog"], [role="alertdialog"]')) {
+    if (document.querySelector('[role="menu"], [role="listbox"], [role="dialog"], [role="alertdialog"]')) {
       collapseSoon()
       return
     }
@@ -355,9 +363,8 @@ watch(
 )
 
 onMounted(async () => {
-  // 岛悬浮窗：页面背景透明（窗口本身透明），并整体缩小内容字号
+  // 岛悬浮窗：页面背景透明（窗口本身透明）
   document.body.style.background = 'transparent'
-  document.documentElement.style.fontSize = '13px'
   // 按持久化偏好应用初始停靠布局
   if (settings.prefs.monitorName) {
     await invoke('select_island_monitor', { name: settings.prefs.monitorName }).catch(() => {})
@@ -414,7 +421,6 @@ onBeforeUnmount(() => {
         </Button>
       </div>
       <!-- 通知层：保留左侧机器人表情，显示通知图标和文案 -->
-      <Transition name="notify" mode="out-in" appear>
         <div
           v-if="notify.current && !open"
           :key="notify.current.kind"
@@ -445,30 +451,10 @@ onBeforeUnmount(() => {
             </template>
           </div>
         </div>
-      </Transition>
       <!-- 展开层：面板内容 -->
       <div class="island-panel-layer" :style="panelLayerStyle">
-        <IslandPanel :pinned="pinned" @drag="beginDrag" @toggle-pin="togglePin" />
+        <IslandPanel :pinned="pinned" :open="open" :notification="notify.overlay" :notification-icon="notify.overlay ? NOTIFY_ICONS[notify.overlay.kind] : undefined" @drag="beginDrag" @toggle-pin="togglePin" />
       </div>
-      <!-- 面板内浮层通知（展开时出现，不打断面板内容） -->
-      <Transition name="notify" mode="out-in">
-        <div v-if="notify.overlay" :key="notify.overlay.kind" class="island-notify-overlay">
-          <RobotFace class="size-8 shrink-0" />
-          <component
-            :is="NOTIFY_ICONS[notify.overlay.kind]"
-            class="size-4 shrink-0"
-            :class="notify.overlay.tone === 'warn' ? 'text-red-400' : 'text-primary'"
-            aria-hidden="true"
-          />
-          <span class="truncate text-xs" :title="notify.overlay.text">
-            <template v-if="notify.overlay.volume && !notify.overlay.volume.mute">
-              音量：<span :key="notify.overlay.volume.pct" class="volume-number">{{ notify.overlay.volume.pct }}</span>% 🔊
-            </template>
-            <template v-else>{{ notify.overlay.text }}</template>
-          </span>
-          <template v-if="notify.overlay.tone === 'warn'"><Button variant="ghost" size="sm" class="h-7 px-1 text-xs" @click.stop="notify.snooze()">稍后</Button><Button variant="ghost" size="sm" class="h-7 px-1 text-xs" @click.stop="notify.dismiss()">关闭</Button></template>
-        </div>
-      </Transition>
     </div>
   </main>
 </template>
@@ -535,42 +521,6 @@ onBeforeUnmount(() => {
   padding: 0 16px;
   color: var(--foreground);
   pointer-events: auto;
-}
-
-/* 面板内浮层通知：顶部悬浮胶囊条，不打断面板内容 */
-.island-notify-overlay {
-  position: absolute;
-  top: 6px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 20;
-  display: flex;
-  max-width: calc(100% - 16px);
-  align-items: center;
-  gap: 6px;
-  border-radius: 9999px;
-  background: color-mix(in srgb, var(--muted) 92%, transparent);
-  box-shadow: 0 4px 12px rgb(0 0 0 / 0.18);
-  padding: 4px 12px;
-  pointer-events: auto;
-}
-
-.notify-enter-active,
-.notify-leave-active {
-  transition:
-    opacity 180ms ease,
-    transform 220ms ease;
-}
-
-.notify-enter-from,
-.notify-leave-to {
-  opacity: 0;
-  transform: translateY(6px) scale(0.96);
-}
-
-.notify-enter-to,
-.notify-leave-from {
-  opacity: 1;
 }
 
 .volume-number {

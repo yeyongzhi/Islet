@@ -1,7 +1,7 @@
 {
-  "name": "winisland",
+  "name": "islet",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.1.0-beta1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -39,5 +39,5 @@
     "vite": "^8.3.6",
     "vue-tsc": "^3.3.14"
   },
-  "description": "WinIsland - Windows 桌面灵动岛"
+  "description": "Islet（灵岛）- Windows 桌面灵动岛"
 }

@@ -72,11 +72,11 @@ const segs = computed(() => {
 
 <template>
   <!-- 时间进度：今天/本周/本月/本年进度条 -->
-  <div class="flex h-full flex-col justify-evenly gap-1 px-1 py-1">
-    <div v-for="seg in segs" :key="seg.label" class="flex items-center gap-4">
-      <span class="w-9 shrink-0 text-xs text-muted-foreground">{{ seg.label }}</span>
+  <div class="flex h-full min-h-0 flex-col gap-2 px-1 py-1">
+    <div v-for="seg in segs" :key="seg.label" class="flex min-h-0 flex-1 items-center gap-4">
+      <span class="w-9 shrink-0 text-sm font-medium text-foreground">{{ seg.label }}</span>
       <Progress :model-value="seg.pct" :aria-label="`${seg.label}时间进度`" class="h-2 min-w-0 flex-1 bg-muted [&_[data-slot=progress-indicator]]:bg-primary/60" />
-      <span class="w-32 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
+      <span class="w-36 shrink-0 whitespace-nowrap text-right text-sm text-muted-foreground tabular-nums">
         {{ seg.pct.toFixed(0) }}% · {{ seg.remain }}
       </span>
     </div>

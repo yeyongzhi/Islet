@@ -8,6 +8,7 @@ export type AppearanceMode = 'light' | 'dark' | 'system'
 export type IslandEdge = 'top' | 'left' | 'right' | 'bottom'
 export type PanelSize = 'small' | 'medium' | 'large'
 export type CompactContent = 'weather' | 'music' | 'monitor' | 'network' | 'countdown' | 'pomodoro'
+export type PanelIndicatorStyle = 'dots' | 'text'
 
 /** 展开面板尺寸档位：w/h 为窗口逻辑尺寸，zoom 为内容整体缩放（HMR 下与 Rust 侧保持一致） */
 export const PANEL_SIZES: Record<PanelSize, { label: string; w: number; h: number; zoom: number }> = {
@@ -29,6 +30,7 @@ export interface Preferences {
   expandMode: 'hover' | 'click'
   hoverDelay: number
   leaveDelay: number
+  panelIndicatorStyle: PanelIndicatorStyle
   rememberPanel: boolean
   lastPanel: PanelId
   favoritePanels: PanelId[]
@@ -92,18 +94,19 @@ export const THEME_COLORS = [
 ] as const
 
 const DEFAULTS: Preferences = {
-  appearanceMode: 'system',
+  appearanceMode: 'dark',
   themeColor: 'violet',
   borderRadius: 16,
   fontSize: 14,
   islandEdge: 'top',
   islandOffset: 640,
   edgeAttached: true,
-  panelSize: 'medium' as PanelSize,
+  panelSize: 'small' as PanelSize,
   compactContent: 'weather',
   expandMode: 'hover',
   hoverDelay: 200,
   leaveDelay: 500,
+  panelIndicatorStyle: 'dots',
   rememberPanel: false,
   lastPanel: 'calendar',
   favoritePanels: [],
@@ -157,7 +160,9 @@ function normalizePanels(parsed: Partial<Preferences>): Partial<Preferences> {
   if (!['weather', 'music', 'monitor', 'network', 'countdown', 'pomodoro'].includes(parsed.compactContent ?? '')) parsed.compactContent = 'weather'
   if (!['hover', 'click'].includes(parsed.expandMode ?? '')) parsed.expandMode = 'hover'
   if (![0, 200, 500, 1000].includes(parsed.hoverDelay as number)) parsed.hoverDelay = 200
-  if (![200, 500, 1000, 2000].includes(parsed.leaveDelay as number)) parsed.leaveDelay = 500
+  if (![0, 200, 500, 1000, 2000].includes(parsed.leaveDelay as number)) parsed.leaveDelay = 500
+  if (!['dots', 'text'].includes(parsed.panelIndicatorStyle ?? '')) parsed.panelIndicatorStyle = 'dots'
+  if (![14, 15, 16].includes(parsed.fontSize as number)) parsed.fontSize = 14
   if (!PANELS.some((panel) => panel.id === parsed.lastPanel)) parsed.lastPanel = 'calendar'
   parsed.favoritePanels = Array.isArray(parsed.favoritePanels) ? parsed.favoritePanels.filter((id) => PANELS.some((panel) => panel.id === id)) : []
   if (![10, 25, 50, 100].includes(parsed.clipboardLimit as number)) parsed.clipboardLimit = 50

@@ -7,9 +7,9 @@
 
 ## 下载安装包
 
-正式版本将通过 GitHub Releases 提供 NSIS 安装程序（`WinIsland_x.y.z_x64-setup.exe`）：
+正式版本将通过 GitHub Releases 提供 NSIS 安装程序（`Islet_x.y.z_x64-setup.exe`）：
 
-- 最新发布页：`https://github.com/<owner>/WinIsland/releases/latest`
+- 最新发布页：[Islet Releases](https://github.com/yeyongzhi/Islet/releases/latest)
 
 ::: tip 当前状态
 项目尚未发布首个版本，当前可通过「从源码运行」体验。

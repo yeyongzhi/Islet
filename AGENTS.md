@@ -1,4 +1,4 @@
-# WinIsland 开发规范
+# Islet（灵岛）开发规范
 
 ## UI 组件强制规范
 

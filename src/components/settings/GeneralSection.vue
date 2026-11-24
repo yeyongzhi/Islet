@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useSettingsStore, PANEL_SIZES, type CompactContent, type IslandEdge } from '@/stores/settings'
+import { useSettingsStore, PANEL_SIZES, type CompactContent, type IslandEdge, type PanelIndicatorStyle } from '@/stores/settings'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const settings = useSettingsStore()
@@ -117,6 +117,13 @@ async function setAutoStart(enabled: boolean) {
         </Select>
       </div>
       <div class="flex items-center justify-between gap-3">
+        <div><p class="text-sm">底部切换显示样式</p><p class="text-xs text-muted-foreground">选择面板导航显示为点位或文字</p></div>
+        <Select :model-value="settings.prefs.panelIndicatorStyle" @update:model-value="(v) => settings.set('panelIndicatorStyle', v as PanelIndicatorStyle)">
+          <SelectTrigger class="w-44" aria-label="底部切换显示样式"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectGroup><SelectItem value="dots">点位</SelectItem><SelectItem value="text">文字</SelectItem></SelectGroup></SelectContent>
+        </Select>
+      </div>
+      <div class="flex items-center justify-between gap-3">
         <span class="text-sm">悬停展开延迟</span>
         <Select :model-value="String(settings.prefs.hoverDelay)" :disabled="settings.prefs.expandMode !== 'hover'" @update:model-value="(v) => settings.set('hoverDelay', Number(v))">
           <SelectTrigger class="w-44" aria-label="悬停展开延迟"><SelectValue /></SelectTrigger>
@@ -127,7 +134,7 @@ async function setAutoStart(enabled: boolean) {
         <span class="text-sm">移出收起延迟</span>
         <Select :model-value="String(settings.prefs.leaveDelay)" @update:model-value="(v) => settings.set('leaveDelay', Number(v))">
           <SelectTrigger class="w-44" aria-label="移出收起延迟"><SelectValue /></SelectTrigger>
-          <SelectContent><SelectGroup><SelectItem v-for="v in [200, 500, 1000, 2000]" :key="v" :value="String(v)">{{ v }} 毫秒</SelectItem></SelectGroup></SelectContent>
+          <SelectContent><SelectGroup><SelectItem v-for="v in [0, 200, 500, 1000, 2000]" :key="v" :value="String(v)">{{ v === 0 ? '立即' : `${v} 毫秒` }}</SelectItem></SelectGroup></SelectContent>
         </Select>
       </div>
       <div class="flex items-center justify-between gap-3">
@@ -228,7 +235,7 @@ async function setAutoStart(enabled: boolean) {
       <div class="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2.5">
         <div class="flex flex-col">
           <span class="text-sm font-medium">开机自启动</span>
-          <span class="text-xs text-muted-foreground">登录 Windows 后自动在托盘启动 WinIsland</span>
+          <span class="text-xs text-muted-foreground">登录 Windows 后自动在托盘启动 Islet 灵岛</span>
         </div>
         <Switch
           :model-value="autoStart"

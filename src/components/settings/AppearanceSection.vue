@@ -14,12 +14,12 @@ const settings = useSettingsStore()
 const MODE_OPTIONS: { value: AppearanceMode; label: string }[] = [
   { value: 'system', label: '跟随系统' },
   { value: 'light', label: '亮色' },
-  { value: 'dark', label: '暗色' },
+  { value: 'dark', label: '暗色（默认）' },
 ]
 
 const PANEL_SIZE_OPTIONS = (Object.keys(PANEL_SIZES) as PanelSize[]).map((key) => ({
   value: key,
-  label: PANEL_SIZES[key].label,
+  label: key === 'small' ? `${PANEL_SIZES[key].label}（默认）` : PANEL_SIZES[key].label,
 }))
 
 const RADIUS_OPTIONS = [
@@ -33,10 +33,8 @@ const RADIUS_OPTIONS = [
 
 const FONT_OPTIONS = [
   { value: '14', label: '14 px（默认）' },
+  { value: '15', label: '15 px' },
   { value: '16', label: '16 px' },
-  { value: '18', label: '18 px' },
-  { value: '20', label: '20 px' },
-  { value: '24', label: '24 px' },
 ]
 </script>
 

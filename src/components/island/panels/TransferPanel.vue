@@ -107,12 +107,12 @@ onMounted(async () => {
         </Badge>
         <AlertDialog><AlertDialogTrigger as-child><Button
           v-if="transfer.items.length"
-          variant="ghost"
+          variant="outline"
           size="sm"
-          class="h-7 text-xs hover:bg-accent"
+          class="h-7 gap-1.5 px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
           aria-label="清空中转站"
         >
-          清空
+          <Trash2 class="size-4" aria-hidden="true" />清空
         </Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>清空中转站？</AlertDialogTitle><AlertDialogDescription>只删除暂存的路径记录，不会删除原文件。</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction class="bg-destructive text-destructive-foreground" @click="transfer.clear()">清空</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       </div>
     </div>
@@ -137,11 +137,11 @@ onMounted(async () => {
 
       <!-- 文件列表 -->
       <ScrollArea v-else class="min-h-0 flex-1" @pointerdown.capture.stop>
-        <div class="flex flex-col gap-1 pr-1">
+        <div class="flex flex-col pr-1">
           <div
             v-for="item in transfer.items"
             :key="item.path"
-            class="group flex items-center gap-2 rounded-md px-2 py-1.5"
+            class="group flex items-center gap-2 rounded-md px-2 py-0.5"
             :class="draggingRow === item.path ? 'bg-accent' : 'hover:bg-accent/60'"
             :title="item.path"
             @pointerdown.capture.stop="beginPress(item.path, $event)"
@@ -153,15 +153,16 @@ onMounted(async () => {
             />
             <span class="min-w-0 flex-1 truncate text-xs">{{ item.name }}</span>
             <span class="shrink-0 text-xs text-muted-foreground">{{ item.exists === false ? '原文件不可用' : item.isDir ? '文件夹' : item.size != null ? `${(item.size / 1048576).toFixed(1)} MB` : '文件' }}</span>
-            <AlertDialog><AlertDialogTrigger as-child><Button
+            <Button
               variant="ghost"
               size="icon"
               class="size-7 shrink-0 text-destructive hover:bg-accent"
               :aria-label="`移除 ${item.name}`"
               @pointerdown.capture.stop
+              @click.stop="transfer.remove(item.path)"
             >
               <Trash2 class="size-4" aria-hidden="true" />
-            </Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>移除 {{ item.name }}？</AlertDialogTitle><AlertDialogDescription>只移除路径记录，不会删除原文件。</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction class="bg-destructive text-destructive-foreground" @click="transfer.remove(item.path)">移除</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+            </Button>
           </div>
         </div>
       </ScrollArea>

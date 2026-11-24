@@ -85,7 +85,7 @@ const compactTitle = computed(() => weather.data && settings.prefs.compactConten
   <div
     v-if="!isDockedSide"
     class="flex h-full w-full items-center justify-between px-4"
-    aria-label="WinIsland 收起状态"
+    aria-label="Islet 灵岛收起状态"
   >
     <RobotFace class="size-8 shrink-0" />
     <div v-if="pillTime" class="flex items-center gap-1.5 text-[15px] font-bold tabular-nums">
@@ -118,7 +118,7 @@ const compactTitle = computed(() => weather.data && settings.prefs.compactConten
   <div
     v-else
     class="flex h-full w-full flex-col items-center justify-center gap-2"
-    aria-label="WinIsland 收起状态（侧边停靠）"
+    aria-label="Islet 灵岛收起状态（侧边停靠）"
   >
     <RobotFace class="size-8 shrink-0" />
     <span

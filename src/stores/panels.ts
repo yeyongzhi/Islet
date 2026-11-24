@@ -20,7 +20,7 @@ import {
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
 import { computed, ref, watch } from 'vue'
-import { defineStore } from 'pinia'
+import { acceptHMRUpdate, defineStore } from 'pinia'
 import { useSettingsStore } from '@/stores/settings'
 
 export type PanelId =
@@ -190,7 +190,11 @@ export const usePanelsStore = defineStore('panels', () => {
     if (!list.some((p) => p.id === activeId.value)) {
       activeId.value = list[0]?.id ?? 'calendar'
     }
-  })
+  }, { immediate: true, flush: 'sync' })
 
   return { activeId, visiblePanels, index, next, prev, select }
 })
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(usePanelsStore, import.meta.hot))
+}
