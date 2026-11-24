@@ -3,16 +3,16 @@
 ## 前置条件
 
 - Windows 10 及以上（x64）
-- 安装包发布后可直接安装；开发体验需要 Node.js（含 pnpm）与 Rust 工具链（含 MSVC）
+- Beta 安装需要 Windows x64；从源码开发需要 Node.js（含 pnpm）与 Rust 工具链（含 MSVC）
 
 ## 下载安装包
 
-正式版本将通过 GitHub Releases 提供 NSIS 安装程序（`Islet_x.y.z_x64-setup.exe`）：
+当前 Beta 通过 GitHub Release 提供 NSIS 安装程序（`Islet_0.1.0-beta1_x64-setup.exe`）：
 
-- 最新发布页：[Islet Releases](https://github.com/yeyongzhi/Islet/releases/latest)
+- [下载 v0.1.0-beta1（Windows x64）](https://github.com/yeyongzhi/Islet/releases/tag/v0.1.0-beta1)
 
 ::: tip 当前状态
-项目尚未发布首个版本，当前可通过「从源码运行」体验。
+这是 Beta 预发布版本，尚非正式稳定版。遇到问题请通过 GitHub Issues 反馈。
 :::
 
 ## 从源码运行

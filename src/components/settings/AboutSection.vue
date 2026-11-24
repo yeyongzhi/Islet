@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'vue-sonner'
 
 const REPOSITORY = 'https://github.com/yeyongzhi/Islet'
-const VERSION_MANIFEST = 'https://raw.githubusercontent.com/yeyongzhi/Islet/dev/latest-version.json'
-const CHANGELOG = `${REPOSITORY}/blob/dev/CHANGELOG.md`
+const VERSION_MANIFEST = 'https://raw.githubusercontent.com/yeyongzhi/Islet/main/latest-version.json'
+const CHANGELOG = `${REPOSITORY}/blob/main/CHANGELOG.md`
 const version = ref('0.1.0-beta1')
 const checking = ref(false)
 const updateMessage = ref('')

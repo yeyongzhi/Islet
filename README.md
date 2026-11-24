@@ -12,11 +12,11 @@ Islet（灵岛）是一款 Windows 桌面常驻小部件：默认收起为屏幕
 
 ## 当前版本
 
-`v0.1.0-beta1`（Beta 预览版；当前尚无公开安装包）
+`v0.1.0-beta1`（Beta 预览版）
 
 ## 最新版本
 
-目前仓库尚无公开 Release 或可下载的安装包。可按下方步骤从源码体验；安装包发布后会出现在 [GitHub Releases](https://github.com/yeyongzhi/Islet/releases)，正式版也可从 [最新正式版本](https://github.com/yeyongzhi/Islet/releases/latest) 获取。
+Beta 安装包：[下载 v0.1.0-beta1（Windows x64）](https://github.com/yeyongzhi/Islet/releases/tag/v0.1.0-beta1)。正式版发布后可从 [最新正式版本](https://github.com/yeyongzhi/Islet/releases/latest) 获取。
 
 ## 功能清单
 
@@ -30,14 +30,14 @@ Islet（灵岛）是一款 Windows 桌面常驻小部件：默认收起为屏幕
 
 ## 安装与使用
 
-当前请从源码运行：
+也可以从源码运行：
 
 ```bash
 pnpm install
 pnpm tauri dev
 ```
 
-完整步骤见仓库文档：[安装说明](./docs/install.md) · [使用说明](./docs/usage.md)。Windows NSIS 安装包会在首个 GitHub Release 发布后提供。
+安装步骤见[安装说明](./docs/install.md)，日常操作见[使用说明](./docs/usage.md)。当前 Beta 提供 Windows x64 NSIS 安装程序。
 
 ## 开发简介
 
