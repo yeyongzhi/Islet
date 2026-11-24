@@ -1,9 +1,9 @@
 name: Deploy Docs Site
 
-# main 为发布主分支；兼容仓库默认分支 dev，两个分支推送时均部署文档站
+# 仓库主分支为 main；推送到该分支时部署 VitePress 文档站到 GitHub Pages
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
 
 permissions:
   contents: read
@@ -17,8 +17,11 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
