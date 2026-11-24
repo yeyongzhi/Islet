@@ -4,17 +4,19 @@
 
 Windows 桌面灵动岛与轻量信息工具 —— 重要信息，一眼可见。
 
+[项目文档](./docs/index.md) · [功能清单](./docs/features.md) · [安装说明](./docs/install.md) · [使用说明](./docs/usage.md) · [问题反馈](https://github.com/yeyongzhi/Islet/issues)
+
 ## 软件说明
 
 Islet（灵岛）是一款 Windows 桌面常驻小部件：默认收起为屏幕边缘的小胶囊（显示时间/番茄钟与天气），鼠标悬停后展开为多面板信息站，支持四边停靠与拖动换位。它帮助用户快速查看信息并处理轻量任务。
 
 ## 当前版本
 
-`v0.1.0-beta1`（Beta 预览版，尚未正式发布）
+`v0.1.0-beta1`（Beta 预览版；当前尚无公开安装包）
 
 ## 最新版本
 
-尚无正式版本发布。当前 Beta 预览版的 [发布页面](https://github.com/yeyongzhi/Islet/releases/tag/v0.1.0-beta1)（发布后可在此获取 Windows 安装包）；正式版发布后可从 [GitHub Releases](https://github.com/yeyongzhi/Islet/releases/latest) 下载。
+目前仓库尚无公开 Release 或可下载的安装包。可按下方步骤从源码体验；安装包发布后会出现在 [GitHub Releases](https://github.com/yeyongzhi/Islet/releases)，正式版也可从 [最新正式版本](https://github.com/yeyongzhi/Islet/releases/latest) 获取。
 
 ## 功能清单
 
@@ -28,14 +30,14 @@ Islet（灵岛）是一款 Windows 桌面常驻小部件：默认收起为屏幕
 
 ## 安装与使用
 
-开发体验：
+当前请从源码运行：
 
 ```bash
 pnpm install
 pnpm tauri dev
 ```
 
-发布安装包将随 GitHub Release 提供（NSIS 安装程序）；完整说明见文档站「安装说明」。
+完整步骤见仓库文档：[安装说明](./docs/install.md) · [使用说明](./docs/usage.md)。Windows NSIS 安装包会在首个 GitHub Release 发布后提供。
 
 ## 开发简介
 
@@ -44,6 +46,8 @@ pnpm tauri dev
 - `docs/` VitePress 产品文档站
 
 本地开发需 Node.js（含 pnpm）、Rust 工具链（含 MSVC）。
+
+支持平台：Windows 10 及以上，x64。应用使用 Windows 桌面能力，当前不提供 macOS 或 Linux 安装包。
 
 ```bash
 pnpm install          # 安装依赖
@@ -63,9 +67,11 @@ pnpm --dir docs docs:build  # 构建文档站
 - Windows SMTC / arboard（媒体控制、剪贴板）
 - VitePress（产品文档站）
 
-## 更新日志
+## 文档与更新日志
 
-- [查看更新日志](./CHANGELOG.md)（文档站同步展示）
+- [项目文档首页](./docs/index.md)
+- [功能清单](./docs/features.md)
+- [更新日志](./CHANGELOG.md)（VitePress 站点复用同一日志内容）
 
 ## 联系作者
 

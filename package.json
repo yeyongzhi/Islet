@@ -2,6 +2,7 @@
   "name": "islet",
   "private": true,
   "version": "0.1.0-beta1",
+  "packageManager": "pnpm@12.10.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
