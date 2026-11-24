@@ -10,12 +10,15 @@ quickstart.load()
 
 const nameDraft = ref('')
 const pathDraft = ref('')
+const editingId = ref<string | null>(null)
 
 function add() {
   const name = nameDraft.value.trim()
   const path = pathDraft.value.trim()
   if (!name || !path || !quickstart.data) return
-  quickstart.add(name, path)
+  if (editingId.value) quickstart.update(editingId.value, name, path)
+  else quickstart.add(name, path)
+  editingId.value = null
   nameDraft.value = ''
   pathDraft.value = ''
 }
@@ -52,7 +55,7 @@ function add() {
         @click="add"
       >
         <Plus class="size-3.5" aria-hidden="true" />
-        添加启动项
+        {{ editingId ? '保存修改' : '添加启动项' }}
       </Button>
     </div>
 
@@ -68,6 +71,7 @@ function add() {
           <p class="truncate text-sm font-medium">{{ it.name }}</p>
           <p class="truncate text-xs text-muted-foreground">{{ it.path }}</p>
         </div>
+        <Button variant="ghost" size="sm" @click="editingId = it.id; nameDraft = it.name; pathDraft = it.path">编辑</Button>
         <Button
           variant="ghost"
           size="icon"

@@ -10,36 +10,19 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import CalendarPanel from '@/components/island/panels/CalendarPanel.vue'
-import ClipboardPanel from '@/components/island/panels/ClipboardPanel.vue'
-import ClockPanel from '@/components/island/panels/ClockPanel.vue'
-import CountdownPanel from '@/components/island/panels/CountdownPanel.vue'
-import DisksPanel from '@/components/island/panels/DisksPanel.vue'
-import EyecarePanel from '@/components/island/panels/EyecarePanel.vue'
-import MonitorPanel from '@/components/island/panels/MonitorPanel.vue'
-import NetspeedPanel from '@/components/island/panels/NetspeedPanel.vue'
-import MusicPanel from '@/components/island/panels/MusicPanel.vue'
-import OffworkPanel from '@/components/island/panels/OffworkPanel.vue'
-import PomodoroPanel from '@/components/island/panels/PomodoroPanel.vue'
-import ProgressPanel from '@/components/island/panels/ProgressPanel.vue'
-import QuickstartPanel from '@/components/island/panels/QuickstartPanel.vue'
-import RatesPanel from '@/components/island/panels/RatesPanel.vue'
-import SedentaryPanel from '@/components/island/panels/SedentaryPanel.vue'
-import SysinfoPanel from '@/components/island/panels/SysinfoPanel.vue'
-import ToiletPanel from '@/components/island/panels/ToiletPanel.vue'
-import TransferPanel from '@/components/island/panels/TransferPanel.vue'
-import WaterPanel from '@/components/island/panels/WaterPanel.vue'
-import WeatherPanel from '@/components/island/panels/WeatherPanel.vue'
-import { useSettingsStore } from '@/stores/settings'
+import { PANEL_SIZES, useSettingsStore } from '@/stores/settings'
+import IslandPanel from '@/components/island/IslandPanel.vue'
 import CountdownEditor from '@/components/settings/CountdownEditor.vue'
 import EventsEditor from '@/components/settings/EventsEditor.vue'
 import PomodoroSettings from '@/components/settings/PomodoroSettings.vue'
 import QuickstartEditor from '@/components/settings/QuickstartEditor.vue'
+import GalleryEditor from '@/components/settings/GalleryEditor.vue'
 import {
   PANELS,
   PANEL_CATEGORY_ORDER,
@@ -48,30 +31,6 @@ import {
 } from '@/stores/panels'
 
 const settings = useSettingsStore()
-
-/** 预览用真实面板组件 */
-const PREVIEWS = {
-  calendar: CalendarPanel,
-  clock: ClockPanel,
-  progress: ProgressPanel,
-  weather: WeatherPanel,
-  monitor: MonitorPanel,
-  music: MusicPanel,
-  pomodoro: PomodoroPanel,
-  clipboard: ClipboardPanel,
-  transfer: TransferPanel,
-  offwork: OffworkPanel,
-  water: WaterPanel,
-  toilet: ToiletPanel,
-  countdown: CountdownPanel,
-  rates: RatesPanel,
-  netspeed: NetspeedPanel,
-  disks: DisksPanel,
-  sysinfo: SysinfoPanel,
-  quickstart: QuickstartPanel,
-  sedentary: SedentaryPanel,
-  eyecare: EyecarePanel,
-} satisfies Record<PanelId, unknown>
 
 interface Row {
   id: PanelId
@@ -111,8 +70,11 @@ watch(
 
 function setEnabled(id: PanelId, enabled: boolean) {
   const disabled = new Set(settings.prefs.disabledPanels)
-  if (enabled) disabled.delete(id)
-  else disabled.add(id)
+  if (enabled) {
+    disabled.delete(id)
+    settings.set('favoritePanels', settings.prefs.favoritePanels.filter((item) => item !== id))
+    settings.set('panelOrder', [...settings.prefs.panelOrder.filter((item) => item !== id), id])
+  } else disabled.add(id)
   settings.set('disabledPanels', [...disabled])
 }
 
@@ -131,8 +93,7 @@ function matchQuery(row: Row) {
 const groups = computed(() =>
   PANEL_CATEGORY_ORDER.map((category) => ({
     category,
-    rows: order.value
-      .map((id) => PANELS.find((p) => p.id === id)!)
+    rows: PANELS
       .filter((p) => p.category === category)
       .map((p) => ({ ...p, enabled: enabledMap.value[p.id] ?? false }))
       .filter(matchQuery),
@@ -143,7 +104,7 @@ const noResult = computed(() => groups.value.length === 0)
 
 /** 排序页的全局行（含启用状态） */
 const sortRows = computed(() =>
-  order.value.map((id) => {
+  order.value.filter((id) => enabledMap.value[id]).map((id) => {
     const meta = PANELS.find((p) => p.id === id)!
     return { ...meta, enabled: enabledMap.value[id] ?? false }
   }),
@@ -173,12 +134,14 @@ function onSortGrabDown(row: Row, event: PointerEvent) {
 
 function onSortMove(event: PointerEvent) {
   if (!dragging.value) return
-  const from = order.value.indexOf(dragging.value)
-  let to = from + Math.round((event.clientY - startY) / step)
-  to = Math.max(0, Math.min(order.value.length - 1, to))
+  const visible = order.value.filter((id) => enabledMap.value[id])
+  const from = visible.indexOf(dragging.value)
+  const to = Math.max(0, Math.min(visible.length - 1, from + Math.round((event.clientY - startY) / step)))
   if (to === from) return
-  const [moved] = order.value.splice(from, 1)
-  order.value.splice(to, 0, moved!)
+  const target = visible[to]!
+  const [moved] = order.value.splice(order.value.indexOf(dragging.value), 1)
+  const targetIndex = order.value.indexOf(target)
+  order.value.splice(targetIndex + (to > from ? 1 : 0), 0, moved!)
   startY = event.clientY
 }
 
@@ -262,7 +225,6 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
         </Button>
         <component :is="detailMeta!.icon" class="size-4 text-muted-foreground" aria-hidden="true" />
         <p class="text-sm font-semibold">{{ detailMeta!.label }}</p>
-        <span class="text-xs text-muted-foreground">设置与预览</span>
       </div>
 
       <div class="flex items-center justify-between rounded-lg border border-border px-3 py-2">
@@ -271,12 +233,14 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
       </div>
 
       <!-- 编辑器：倒数日 / 快速启动为独立编辑器，其余为选项行 -->
-      <EventsEditor v-if="detailId === 'calendar'" />
+      <GalleryEditor v-if="detailId === 'gallery'" />
+      <EventsEditor v-else-if="detailId === 'calendar'" />
       <CountdownEditor v-else-if="detailId === 'countdown'" />
       <QuickstartEditor v-else-if="detailId === 'quickstart'" />
       <PomodoroSettings v-else-if="detailId === 'pomodoro'" />
+      <div v-if="detailId === 'water'" class="flex items-center justify-between gap-3 rounded-lg border p-3"><span class="text-sm">每日目标杯数</span><Select :model-value="String(settings.prefs.waterGoal)" @update:model-value="v => settings.set('waterGoal', Number(v))"><SelectTrigger class="w-28" aria-label="每日目标杯数"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem v-for="n in [4, 6, 8, 10, 12]" :key="n" :value="String(n)">{{ n }} 杯</SelectItem></SelectGroup></SelectContent></Select></div>
       <div
-        v-else-if="detailOptions.length"
+        v-if="detailOptions.length"
         class="flex flex-col gap-1 rounded-lg border border-border bg-card px-3 py-1"
       >
         <div
@@ -332,20 +296,15 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
         </div>
       </div>
 
-      <!-- 实时预览：渲染真实面板组件 -->
+      <!-- 使用与灵岛相同的壳层与面板组件，按所选尺寸等比显示。 -->
       <div class="flex flex-col gap-1.5">
-        <p class="text-xs text-muted-foreground">实时预览（灵动岛中等比缩小）</p>
-        <div
-          class="h-40 overflow-hidden rounded-lg border border-border bg-muted/30"
-          aria-label="卡片预览"
-        >
-          <div class="mx-auto h-full w-[380px]" style="zoom: 0.82">
-            <component :is="PREVIEWS[detailId!]" />
+        <p class="text-xs text-muted-foreground">面板预览</p>
+        <div class="flex items-center justify-center overflow-hidden rounded-lg bg-muted/30 p-3" :style="{ minHeight: `${PANEL_SIZES[settings.prefs.panelSize].h * 0.8 + 24}px` }" aria-label="卡片预览">
+          <div :style="{ width: `${PANEL_SIZES[settings.prefs.panelSize].w}px`, height: `${PANEL_SIZES[settings.prefs.panelSize].h}px`, zoom: 0.8, borderRadius: `${Math.min(28, settings.prefs.borderRadius + 4)}px`, background: 'var(--background)', boxShadow: 'var(--island-shadow)', overflow: 'hidden' }">
+            <IslandPanel :preview-id="detailId" :open="true" :pinned="false" :notification="null" />
           </div>
         </div>
       </div>
-
-      <p class="text-xs text-muted-foreground">设置即时生效并同步到灵动岛窗口。</p>
     </template>
 
     <!-- 排序页 -->
@@ -434,22 +393,22 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
                 @update:model-value="(v) => setEnabled(row.id, !!v)"
               />
             </div>
-            <div class="flex items-center justify-between gap-1.5">
+            <div class="flex items-end justify-between gap-1.5">
               <div class="min-w-0">
                 <p class="truncate text-sm font-medium" :class="row.enabled ? '' : 'text-muted-foreground'">
                   {{ row.label }}
                 </p>
                 <p class="truncate text-xs text-muted-foreground/80">{{ row.desc }}</p>
               </div>
-              <button
-                v-if="optionsOf(row.id).length"
-                type="button"
-                class="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+              <Button
+                variant="ghost"
+                size="icon"
+                class="size-7 shrink-0 text-muted-foreground"
                 :aria-label="`${row.label}设置`"
                 @click="openDetail(row.id)"
               >
                 <ChevronRight class="size-4" aria-hidden="true" />
-              </button>
+              </Button>
             </div>
           </div>
         </div>

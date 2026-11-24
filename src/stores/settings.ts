@@ -8,6 +8,11 @@ export type AppearanceMode = 'light' | 'dark' | 'system'
 export type IslandEdge = 'top' | 'left' | 'right' | 'bottom'
 export type PanelSize = 'small' | 'medium' | 'large'
 export type CompactContent = 'weather' | 'music' | 'monitor' | 'network' | 'countdown' | 'pomodoro'
+export type CompactItem = 'face' | 'time' | 'weather'
+export const COMPACT_ITEMS: { id: CompactItem; label: string }[] = [
+  { id: 'face', label: '灵岛表情' }, { id: 'time', label: '时间' },
+  { id: 'weather', label: '天气' },
+]
 export type PanelIndicatorStyle = 'dots' | 'text'
 
 /** 展开面板尺寸档位：w/h 为窗口逻辑尺寸，zoom 为内容整体缩放（HMR 下与 Rust 侧保持一致） */
@@ -27,6 +32,9 @@ export interface Preferences {
   edgeAttached: boolean
   panelSize: PanelSize
   compactContent: CompactContent
+  compactItems: CompactItem[]
+  animationCurve: 'smooth' | 'ease-in' | 'ease-out' | 'ease-in-out'
+  reminderShake: boolean
   expandMode: 'hover' | 'click'
   hoverDelay: number
   leaveDelay: number
@@ -103,6 +111,9 @@ const DEFAULTS: Preferences = {
   edgeAttached: true,
   panelSize: 'small' as PanelSize,
   compactContent: 'weather',
+  compactItems: ['face', 'time', 'weather'],
+  animationCurve: 'smooth',
+  reminderShake: true,
   expandMode: 'hover',
   hoverDelay: 200,
   leaveDelay: 500,
@@ -116,7 +127,7 @@ const DEFAULTS: Preferences = {
   clipboardLimit: 50,
   clipboardRetentionMinutes: 0,
   clipboardSensitiveFilter: true,
-  weatherCity: '北京',
+  weatherCity: '杭州',
   pomodoroWorkMin: 25,
   pomodoroBreakMin: 5,
   pomodoroRounds: 4,
@@ -158,6 +169,13 @@ const DEFAULTS: Preferences = {
 /** 校正面板顺序与开关：剔除未知面板、补齐新增面板（保持其余相对顺序） */
 function normalizePanels(parsed: Partial<Preferences>): Partial<Preferences> {
   if (!['weather', 'music', 'monitor', 'network', 'countdown', 'pomodoro'].includes(parsed.compactContent ?? '')) parsed.compactContent = 'weather'
+  if (!Array.isArray(parsed.compactItems)) {
+    parsed.compactItems = ['face', 'time', 'weather']
+  } else {
+    const known = new Set(COMPACT_ITEMS.map((item) => item.id))
+    parsed.compactItems = [...new Set(parsed.compactItems.filter((id) => known.has(id)))]
+  }
+  if (!['smooth', 'ease-in', 'ease-out', 'ease-in-out'].includes(parsed.animationCurve ?? '')) parsed.animationCurve = 'smooth'
   if (!['hover', 'click'].includes(parsed.expandMode ?? '')) parsed.expandMode = 'hover'
   if (![0, 200, 500, 1000].includes(parsed.hoverDelay as number)) parsed.hoverDelay = 200
   if (![0, 200, 500, 1000, 2000].includes(parsed.leaveDelay as number)) parsed.leaveDelay = 500
@@ -188,6 +206,11 @@ function normalizePanels(parsed: Partial<Preferences>): Partial<Preferences> {
   }
   if (parsed.panelSize && !(parsed.panelSize in PANEL_SIZES)) {
     parsed.panelSize = 'medium'
+  }
+  // 记录旧配置中的已知项目，新增面板默认关闭。
+  const previousOrder = Array.isArray(parsed.panelOrder) ? new Set(parsed.panelOrder) : null
+  if (previousOrder && Array.isArray(parsed.disabledPanels)) {
+    for (const panel of PANELS) if (!previousOrder.has(panel.id) && !parsed.disabledPanels.includes(panel.id)) parsed.disabledPanels.push(panel.id)
   }
   if (Array.isArray(parsed.panelOrder)) {
     const known = new Set(PANELS.map((p) => p.id))
@@ -316,6 +339,12 @@ export const useSettingsStore = defineStore('settings', () => {
     persist()
   }
 
+  function setCompactItems(items: CompactItem[]) {
+    prefs.value.compactItems = items
+    persist()
+    emit(PREFS_EVENT, JSON.stringify(prefs.value)).catch(() => {})
+  }
+
   /** 读取面板独立设置（未配置时用注册表默认值） */
   function getPanelOption<T extends boolean | string>(panelId: string, key: string, fallback: T): T {
     const raw = prefs.value.panelOptions?.[panelId]?.[key]
@@ -337,5 +366,5 @@ export const useSettingsStore = defineStore('settings', () => {
     persist()
   }
 
-  return { prefs, loaded, load, set, getPanelOption, setPanelOption, applyAppearance, updateIslandLayout }
+  return { prefs, loaded, load, set, setCompactItems, getPanelOption, setPanelOption, applyAppearance, updateIslandLayout }
 })

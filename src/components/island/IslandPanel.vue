@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { invoke } from '@tauri-apps/api/core'
 import { emit as emitEvent } from '@tauri-apps/api/event'
-import { computed, ref, watch, type Component } from 'vue'
+import { computed, defineAsyncComponent, ref, watch, type Component } from 'vue'
 import { ChevronLeft, ChevronRight, LayoutGrid, Pin, PinOff, Settings } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import {
@@ -10,26 +10,27 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import CalendarPanel from './panels/CalendarPanel.vue'
-import ClipboardPanel from './panels/ClipboardPanel.vue'
-import ClockPanel from './panels/ClockPanel.vue'
-import CountdownPanel from './panels/CountdownPanel.vue'
-import DisksPanel from './panels/DisksPanel.vue'
-import EyecarePanel from './panels/EyecarePanel.vue'
-import MonitorPanel from './panels/MonitorPanel.vue'
-import NetspeedPanel from './panels/NetspeedPanel.vue'
-import OffworkPanel from './panels/OffworkPanel.vue'
-import ProgressPanel from './panels/ProgressPanel.vue'
-import QuickstartPanel from './panels/QuickstartPanel.vue'
-import RatesPanel from './panels/RatesPanel.vue'
-import SedentaryPanel from './panels/SedentaryPanel.vue'
-import SysinfoPanel from './panels/SysinfoPanel.vue'
-import ToiletPanel from './panels/ToiletPanel.vue'
-import TransferPanel from './panels/TransferPanel.vue'
-import WaterPanel from './panels/WaterPanel.vue'
-import MusicPanel from './panels/MusicPanel.vue'
-import PomodoroPanel from './panels/PomodoroPanel.vue'
-import WeatherPanel from './panels/WeatherPanel.vue'
+const CalendarPanel = defineAsyncComponent(() => import('./panels/CalendarPanel.vue'))
+const ClipboardPanel = defineAsyncComponent(() => import('./panels/ClipboardPanel.vue'))
+const ClockPanel = defineAsyncComponent(() => import('./panels/ClockPanel.vue'))
+const CountdownPanel = defineAsyncComponent(() => import('./panels/CountdownPanel.vue'))
+const DisksPanel = defineAsyncComponent(() => import('./panels/DisksPanel.vue'))
+const EyecarePanel = defineAsyncComponent(() => import('./panels/EyecarePanel.vue'))
+const MonitorPanel = defineAsyncComponent(() => import('./panels/MonitorPanel.vue'))
+const NetspeedPanel = defineAsyncComponent(() => import('./panels/NetspeedPanel.vue'))
+const OffworkPanel = defineAsyncComponent(() => import('./panels/OffworkPanel.vue'))
+const ProgressPanel = defineAsyncComponent(() => import('./panels/ProgressPanel.vue'))
+const QuickstartPanel = defineAsyncComponent(() => import('./panels/QuickstartPanel.vue'))
+const RatesPanel = defineAsyncComponent(() => import('./panels/RatesPanel.vue'))
+const SedentaryPanel = defineAsyncComponent(() => import('./panels/SedentaryPanel.vue'))
+const SysinfoPanel = defineAsyncComponent(() => import('./panels/SysinfoPanel.vue'))
+const ToiletPanel = defineAsyncComponent(() => import('./panels/ToiletPanel.vue'))
+const TransferPanel = defineAsyncComponent(() => import('./panels/TransferPanel.vue'))
+const WaterPanel = defineAsyncComponent(() => import('./panels/WaterPanel.vue'))
+const MusicPanel = defineAsyncComponent(() => import('./panels/MusicPanel.vue'))
+const PomodoroPanel = defineAsyncComponent(() => import('./panels/PomodoroPanel.vue'))
+const WeatherPanel = defineAsyncComponent(() => import('./panels/WeatherPanel.vue'))
+const GalleryPanel = defineAsyncComponent(() => import('./panels/GalleryPanel.vue'))
 import { usePanelsStore, type PanelId } from '@/stores/panels'
 import { useIslandStore } from '@/stores/island'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -43,6 +44,7 @@ const settings = useSettingsStore()
 const notify = useNotifyStore()
 
 const PANEL_COMPONENTS: Record<PanelId, Component> = {
+  gallery: GalleryPanel,
   calendar: CalendarPanel,
   clock: ClockPanel,
   progress: ProgressPanel,
@@ -65,7 +67,7 @@ const PANEL_COMPONENTS: Record<PanelId, Component> = {
   eyecare: EyecarePanel,
 }
 
-const props = defineProps<{ pinned: boolean; open: boolean; notification: NotifyItem | null; notificationIcon?: Component }>()
+const props = defineProps<{ pinned: boolean; open: boolean; notification: NotifyItem | null; notificationIcon?: Component; previewId?: PanelId; renderContent?: boolean }>()
 const pinTooltipOpen = ref(false)
 watch(() => props.open, () => { pinTooltipOpen.value = false })
 const emit = defineEmits<{ drag: [event: PointerEvent]; togglePin: [] }>()
@@ -194,7 +196,7 @@ async function hideIsland() {
     <div class="relative min-h-0 overflow-hidden px-6 py-1">
       <div class="absolute inset-x-6 inset-y-1">
         <Transition name="panel" mode="out-in">
-          <component :is="PANEL_COMPONENTS[panels.activeId]" :key="panels.activeId" />
+          <component :is="PANEL_COMPONENTS[previewId ?? panels.activeId]" v-if="(open || renderContent) && (previewId || panels.visiblePanels.length)" :key="previewId ?? panels.activeId" />
         </Transition>
       </div>
 
@@ -254,9 +256,6 @@ async function hideIsland() {
       </div>
       <span v-if="settings.prefs.panelIndicatorStyle === 'text'" class="text-xs font-medium text-foreground">
         {{ panels.visiblePanels.find((p) => p.id === panels.activeId)?.label }}<span class="ml-1 font-normal text-muted-foreground">{{ panels.index + 1 }} / {{ panels.visiblePanels.length }}</span>
-      </span>
-      <span v-else class="absolute right-0 shrink-0 text-xs text-muted-foreground">
-        {{ panels.visiblePanels.find((p) => p.id === panels.activeId)?.label }} · {{ panels.index + 1 }} / {{ panels.visiblePanels.length }}
       </span>
     </div>
   </div>

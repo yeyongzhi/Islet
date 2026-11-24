@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useSettingsStore, PANEL_SIZES, type CompactContent, type IslandEdge, type PanelIndicatorStyle } from '@/stores/settings'
+import { useSettingsStore, PANEL_SIZES, type IslandEdge, type PanelIndicatorStyle } from '@/stores/settings'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const settings = useSettingsStore()
@@ -98,18 +98,6 @@ async function setAutoStart(enabled: boolean) {
     <section class="flex flex-col gap-3">
       <h3 class="text-sm font-semibold">收起与展开</h3>
       <div class="flex items-center justify-between gap-3">
-        <span class="text-sm">收起时显示</span>
-        <Select :model-value="settings.prefs.compactContent" @update:model-value="(v) => settings.set('compactContent', v as CompactContent)">
-          <SelectTrigger class="w-44" aria-label="收起时显示"><SelectValue /></SelectTrigger>
-          <SelectContent><SelectGroup>
-            <SelectItem value="weather">时间与天气</SelectItem><SelectItem value="music">音乐</SelectItem>
-            <SelectItem value="monitor">CPU 与内存</SelectItem><SelectItem value="network">网速</SelectItem>
-            <SelectItem value="countdown">最近倒数日</SelectItem><SelectItem value="pomodoro">番茄钟</SelectItem>
-          </SelectGroup></SelectContent>
-        </Select>
-      </div>
-      <p class="text-xs text-muted-foreground">专注计时和通知会临时优先显示；侧边停靠保持紧凑图标。</p>
-      <div class="flex items-center justify-between gap-3">
         <span class="text-sm">展开方式</span>
         <Select :model-value="settings.prefs.expandMode" @update:model-value="(v) => settings.set('expandMode', v as 'hover' | 'click')">
           <SelectTrigger class="w-44" aria-label="展开方式"><SelectValue /></SelectTrigger>
@@ -123,6 +111,14 @@ async function setAutoStart(enabled: boolean) {
           <SelectContent><SelectGroup><SelectItem value="dots">点位</SelectItem><SelectItem value="text">文字</SelectItem></SelectGroup></SelectContent>
         </Select>
       </div>
+      <div class="flex items-center justify-between gap-3">
+        <span class="text-sm">展开收起动画</span>
+        <Select :model-value="settings.prefs.animationCurve" @update:model-value="v => settings.set('animationCurve', v as 'smooth' | 'ease-in' | 'ease-out' | 'ease-in-out')">
+          <SelectTrigger class="w-44" aria-label="展开收起动画"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectGroup><SelectItem value="smooth">顺滑</SelectItem><SelectItem value="ease-in">渐入</SelectItem><SelectItem value="ease-out">渐出</SelectItem><SelectItem value="ease-in-out">渐入渐出</SelectItem></SelectGroup></SelectContent>
+        </Select>
+      </div>
+      <div class="flex items-center justify-between gap-3"><div><p class="text-sm">提醒时摇晃灵岛</p><p class="text-xs text-muted-foreground">番茄专注和久坐提醒时轻微摇晃</p></div><Switch :model-value="settings.prefs.reminderShake" aria-label="提醒时摇晃灵岛" @update:model-value="v => settings.set('reminderShake', !!v)" /></div>
       <div class="flex items-center justify-between gap-3">
         <span class="text-sm">悬停展开延迟</span>
         <Select :model-value="String(settings.prefs.hoverDelay)" :disabled="settings.prefs.expandMode !== 'hover'" @update:model-value="(v) => settings.set('hoverDelay', Number(v))">

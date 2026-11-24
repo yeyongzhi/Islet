@@ -286,11 +286,78 @@ fn save_panel_data(key: String, json: String) -> Result<(), String> {
 /// 打开文件/文件夹/网址（快速启动卡片）
 #[tauri::command]
 fn launch_path(path: String) -> Result<(), String> {
-    std::process::Command::new("cmd")
-        .args(["/C", "start", "", &path])
-        .spawn()
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+    #[cfg(windows)]
+    {
+        use windows::core::HSTRING;
+        use windows::Win32::UI::Shell::ShellExecuteW;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+        let result = unsafe { ShellExecuteW(None, windows::core::w!("open"), &HSTRING::from(path), None, None, SW_SHOWNORMAL) };
+        if result.0 as isize <= 32 { return Err("无法打开目标，请检查路径或链接".into()); }
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    { let _ = path; Err("仅支持 Windows".into()) }
+}
+
+/// 使用系统文件选择器选择本机图片。
+#[tauri::command]
+async fn choose_gallery_images() -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let script = r#"Add-Type -AssemblyName System.Windows.Forms; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $dialog = New-Object System.Windows.Forms.OpenFileDialog; $dialog.Filter = '图片|*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp'; $dialog.Multiselect = $true; if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { ConvertTo-Json -InputObject @($dialog.FileNames) -Compress }"#;
+        let mut command = std::process::Command::new("powershell.exe");
+        command.args(["-NoProfile", "-STA", "-NonInteractive", "-Command", script]);
+        #[cfg(windows)]
+        { use std::os::windows::process::CommandExt; command.creation_flags(0x08000000); }
+        let output = command.output().map_err(|e| e.to_string())?;
+        if !output.status.success() { return Err(String::from_utf8_lossy(&output.stderr).into_owned()); }
+        let result = String::from_utf8_lossy(&output.stdout);
+        if result.trim().is_empty() { return Ok(Vec::new()); }
+        serde_json::from_str(result.trim()).map_err(|e| e.to_string())
+    }).await.map_err(|e| e.to_string())?
+}
+
+/// 默认读取用户图片目录下的前两张图片。
+#[tauri::command]
+fn default_gallery_images() -> Vec<String> {
+    let mut dirs = Vec::new();
+    if let Some(profile) = std::env::var_os("USERPROFILE") { dirs.push(PathBuf::from(profile).join("Pictures")); }
+    if let Some(onedrive) = std::env::var_os("OneDrive") { dirs.push(PathBuf::from(onedrive).join("Pictures")); }
+    if let Some(windows) = std::env::var_os("WINDIR") { dirs.push(PathBuf::from(windows).join("Web").join("Wallpaper")); }
+    let mut pictures = Vec::new();
+    for dir in dirs {
+        let mut pending = vec![(dir, 0)];
+        while let Some((folder, depth)) = pending.pop() {
+            let Ok(entries) = fs::read_dir(folder) else { continue };
+            let mut paths: Vec<_> = entries.filter_map(Result::ok).map(|entry| entry.path()).collect();
+            paths.sort();
+            for path in paths {
+                if path.is_file() && gallery_mime(&path).is_some() {
+                    pictures.push(path.to_string_lossy().into_owned());
+                    if pictures.len() == 2 { return pictures; }
+                } else if depth < 1 && path.is_dir() { pending.push((path, depth + 1)); }
+            }
+        }
+    }
+    pictures
+}
+
+fn gallery_mime(path: &std::path::Path) -> Option<&'static str> {
+    match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
+        "png" => Some("image/png"), "jpg" | "jpeg" => Some("image/jpeg"), "gif" => Some("image/gif"), "webp" => Some("image/webp"), "bmp" => Some("image/bmp"), _ => None,
+    }
+}
+
+#[tauri::command]
+async fn read_gallery_image(path: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use base64::Engine;
+        let path = PathBuf::from(path);
+        let mime = gallery_mime(&path).ok_or("不支持的图片格式")?;
+        let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
+        if metadata.len() > 20 * 1024 * 1024 { return Err("图片大于 20 MB".into()); }
+        let bytes = fs::read(path).map_err(|e| e.to_string())?;
+        Ok(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+    }).await.map_err(|e| e.to_string())?
 }
 
 /// 屏幕工作区信息（逻辑像素）
@@ -361,7 +428,7 @@ fn apply_layout(
 
 /// 设置灵动岛布局（展开/收起 + 停靠边 + 沿边偏移 + 可选面板尺寸 + 边缘间距）
 #[tauri::command]
-fn set_island_layout(
+fn set_island_state(
     window: WebviewWindow,
     edge: String,
     expanded: bool,
@@ -453,6 +520,7 @@ fn finish_drag(window: WebviewWindow, current_edge: String) -> Result<serde_json
 fn open_settings(app: AppHandle) -> Result<(), String> {
     if let Some(w) = app.get_webview_window("settings") {
         let _ = w.show();
+        let _ = w.unminimize();
         let _ = w.set_focus();
     }
     Ok(())
@@ -964,7 +1032,7 @@ pub fn run() {
             )),
         })
         .invoke_handler(tauri::generate_handler![
-            set_island_layout,
+            set_island_state,
             finish_drag,
             open_settings,
             get_data_dir,
@@ -997,6 +1065,9 @@ pub fn run() {
             load_panel_data,
             save_panel_data,
             launch_path,
+            choose_gallery_images,
+            default_gallery_images,
+            read_gallery_image,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

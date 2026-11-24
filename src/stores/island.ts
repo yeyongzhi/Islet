@@ -29,11 +29,11 @@ export const useIslandStore = defineStore('island', () => {
   })
 
   /** 切换展开状态，并按当前停靠边通知 Tauri 调整窗口；浏览器开发环境下静默降级 */
-  function setExpanded(value: boolean, sizeOverride?: { w: number; h: number }) {
+  async function setExpanded(value: boolean, sizeOverride?: { w: number; h: number }) {
     if (expanded.value === value) return
     expanded.value = value
     const size = PANEL_SIZES[settings.prefs.panelSize] ?? PANEL_SIZES.medium
-    invoke('set_island_layout', {
+    await invoke('set_island_state', {
       edge: settings.prefs.islandEdge,
       expanded: value,
       offset: settings.prefs.islandOffset,

@@ -5,6 +5,7 @@ import {
   Bell,
   Database,
   Info,
+  AppWindow,
   LayoutGrid,
   Minus,
   Palette,
@@ -22,6 +23,7 @@ import AboutSection from '@/components/settings/AboutSection.vue'
 import AppearanceSection from '@/components/settings/AppearanceSection.vue'
 import DataSection from '@/components/settings/DataSection.vue'
 import GeneralSection from '@/components/settings/GeneralSection.vue'
+import IslandSection from '@/components/settings/IslandSection.vue'
 import NotificationSection from '@/components/settings/NotificationSection.vue'
 import PanelsSection from '@/components/settings/PanelsSection.vue'
 import PrivacySection from '@/components/settings/PrivacySection.vue'
@@ -37,11 +39,12 @@ onMounted(() => {
   document.body.style.minHeight = '100vh'
 })
 
-type SettingsCategory = 'general' | 'appearance' | 'panels' | 'notify' | 'privacy' | 'data' | 'about'
+type SettingsCategory = 'general' | 'appearance' | 'island' | 'panels' | 'notify' | 'privacy' | 'data' | 'about'
 
 const CATEGORIES: { id: SettingsCategory; label: string; icon: Component }[] = [
   { id: 'general', label: '通用', icon: Settings2 },
   { id: 'appearance', label: '外观', icon: Palette },
+  { id: 'island', label: '灵动岛', icon: AppWindow },
   { id: 'panels', label: '面板', icon: LayoutGrid },
   { id: 'notify', label: '通知', icon: Bell },
   { id: 'privacy', label: '隐私', icon: Shield },
@@ -125,7 +128,7 @@ function close() {
           variant="ghost"
         :class="[
           collapsed ? 'size-9 justify-center' : 'justify-start gap-2',
-          active === c.id ? 'bg-primary/10 text-primary hover:bg-primary/15' : '',
+          active === c.id ? 'bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary' : '',
         ]"
           :aria-pressed="active === c.id"
           :title="c.label"
@@ -154,6 +157,7 @@ function close() {
           <div class="px-6 py-5">
             <GeneralSection v-if="active === 'general'" />
             <AppearanceSection v-else-if="active === 'appearance'" />
+            <IslandSection v-else-if="active === 'island'" />
             <PanelsSection v-else-if="active === 'panels'" />
             <NotificationSection v-else-if="active === 'notify'" />
             <PrivacySection v-else-if="active === 'privacy'" />

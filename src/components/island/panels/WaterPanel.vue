@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -21,7 +22,7 @@ const waterPct = computed(() =>
   Math.min(100, Math.round((health.counters.water / settings.prefs.waterGoal) * 100)),
 )
 
-const GOAL_OPTIONS = [6, 8, 10, 12]
+const GOAL_OPTIONS = [4, 6, 8, 10, 12]
 </script>
 
 <template>
@@ -81,9 +82,9 @@ const GOAL_OPTIONS = [6, 8, 10, 12]
             <SelectValue />
           </SelectTrigger>
           <SelectContent position="popper" side="top" :side-offset="6" class="z-50 text-xs [&_[data-slot=select-item]]:py-1">
-            <SelectItem v-for="g in GOAL_OPTIONS" :key="g" :value="String(g)"
+            <SelectGroup><SelectItem v-for="g in GOAL_OPTIONS" :key="g" :value="String(g)"
               >{{ g }} 杯</SelectItem
-            >
+            ></SelectGroup>
           </SelectContent>
         </Select>
       </div>

@@ -60,7 +60,21 @@ const panelSize = computed(() => PANEL_SIZES[settings.prefs.panelSize] ?? PANEL_
 
 /** 壳层视觉状态：驱动胶囊 ↔ 面板的形变动画 */
 const open = ref(false)
+const renderPanel = ref(false)
+let unmountPanelTimer: number | undefined
+watch(open, (expanded) => {
+  window.clearTimeout(unmountPanelTimer)
+  if (!expanded) unmountPanelTimer = window.setTimeout(() => { renderPanel.value = false }, 320)
+})
 const pinned = ref(false)
+const shaking = ref(false)
+let shakeTimer: number | undefined
+watch(() => notify.current ?? notify.overlay, (item) => {
+  if (!settings.prefs.reminderShake || !item || !['pomodoro', 'sedentary'].includes(item.kind)) return
+  shaking.value = false
+  window.clearTimeout(shakeTimer)
+  requestAnimationFrame(() => { shaking.value = true; shakeTimer = window.setTimeout(() => { shaking.value = false }, 700) })
+})
 watch(
   [open, () => settings.prefs.fontSize],
   ([expanded, fontSize]) => {
@@ -151,15 +165,24 @@ const anchorClass = computed(() => {
   }
 })
 
-function openIsland() {
+let opening = false
+let openRequest = 0
+async function openIsland() {
   // 宽限期内重新移入：取消收起流程
   window.clearTimeout(collapseTimer)
   window.clearTimeout(leaveTimer)
   // 通知层让位于用户交互
   notify.interruptForPanel()
-  if (open.value) return
-  // 窗口先扩到面板尺寸（瞬时），壳层随后从胶囊动画形变为面板
-  island.setExpanded(true)
+  if (open.value || opening) return
+  opening = true
+  const request = ++openRequest
+  // 先完成原生窗口调整并提交一帧，再启动壳层形变，避免窗口大小与内容不同步。
+  await island.setExpanded(true)
+  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+  opening = false
+  if (request !== openRequest) { void island.setExpanded(false); return }
+  window.clearTimeout(unmountPanelTimer)
+  renderPanel.value = true
   open.value = true
   // WebView2 需要窗口持有焦点才会接收滚轮消息；悬停展开时聚焦本窗口
   getCurrentWindow().setFocus().catch(() => {
@@ -177,6 +200,7 @@ function handleEnter() {
 
 function handleLeave() {
   window.clearTimeout(hoverTimer)
+  if (opening) openRequest++
   if (!open.value || pinned.value) return
   collapseSoon()
 }
@@ -238,7 +262,7 @@ function handleDragDropEvent(event: { payload: { type: string; paths?: string[] 
   }
 }
 
-/** 组装 set_island_layout 参数（展开时附带当前面板尺寸） */
+/** 组装 set_island_state 参数（展开时附带当前面板尺寸） */
 function layoutParams(edge: string, expanded: boolean, offset: number) {
   return {
     edge,
@@ -322,7 +346,7 @@ async function endDrag() {
     settings.updateIslandLayout(res.edge as IslandEdge, res.offset)
     if (res.monitor && res.monitor !== settings.prefs.monitorName) settings.set('monitorName', res.monitor)
     // finish_drag 会收起窗口；若拖动前处于展开态则重新展开
-    await invoke('set_island_layout', layoutParams(res.edge, wasExpanded, res.offset))
+    await invoke('set_island_state', layoutParams(res.edge, wasExpanded, res.offset))
     if (wasExpanded) island.setExpanded(true)
   } catch {
     // 非 Tauri 环境忽略
@@ -340,7 +364,7 @@ function resetDrag() {
 watch(
   () => [settings.prefs.islandEdge, settings.prefs.islandOffset, settings.prefs.edgeAttached] as const,
   () => {
-    invoke('set_island_layout', layoutParams(
+    invoke('set_island_state', layoutParams(
       settings.prefs.islandEdge,
       island.expanded,
       settings.prefs.islandOffset,
@@ -353,7 +377,7 @@ watch(
   () => settings.prefs.panelSize,
   () => {
     if (island.expanded) {
-      invoke('set_island_layout', layoutParams(
+      invoke('set_island_state', layoutParams(
         settings.prefs.islandEdge,
         true,
         settings.prefs.islandOffset,
@@ -369,7 +393,7 @@ onMounted(async () => {
   if (settings.prefs.monitorName) {
     await invoke('select_island_monitor', { name: settings.prefs.monitorName }).catch(() => {})
   }
-  invoke('set_island_layout', layoutParams(
+  invoke('set_island_state', layoutParams(
     settings.prefs.islandEdge,
     false,
     settings.prefs.islandOffset,
@@ -395,6 +419,8 @@ onBeforeUnmount(() => {
   window.clearTimeout(leaveTimer)
   window.clearTimeout(hoverTimer)
   window.clearInterval(fullscreenTimer)
+  window.clearTimeout(shakeTimer)
+  window.clearTimeout(unmountPanelTimer)
   unlistenDragDrop?.()
   unlistenManualShow?.()
   unlistenManualHide?.()
@@ -411,8 +437,8 @@ onBeforeUnmount(() => {
   >
     <div
       class="island-shell"
-      :class="{ 'island-shell--open': open }"
-      :style="shellStyle"
+      :class="{ 'island-shell--open': open, 'island-shell--shake': shaking }"
+      :style="{ ...shellStyle, '--morph-easing': settings.prefs.animationCurve === 'smooth' ? 'cubic-bezier(0.22, 1, 0.36, 1)' : settings.prefs.animationCurve }"
     >
       <!-- 收起层：胶囊内容（通知展示时暂时隐藏） -->
       <div v-show="!(notify.current && !open)" class="island-pill-layer">
@@ -453,7 +479,7 @@ onBeforeUnmount(() => {
         </div>
       <!-- 展开层：面板内容 -->
       <div class="island-panel-layer" :style="panelLayerStyle">
-        <IslandPanel :pinned="pinned" :open="open" :notification="notify.overlay" :notification-icon="notify.overlay ? NOTIFY_ICONS[notify.overlay.kind] : undefined" @drag="beginDrag" @toggle-pin="togglePin" />
+        <IslandPanel :pinned="pinned" :open="open" :render-content="renderPanel" :notification="notify.overlay" :notification-icon="notify.overlay ? NOTIFY_ICONS[notify.overlay.kind] : undefined" @drag="beginDrag" @toggle-pin="togglePin" />
       </div>
     </div>
   </main>
@@ -469,10 +495,18 @@ onBeforeUnmount(() => {
   overflow: hidden;
   user-select: none;
   transition:
-    width 460ms cubic-bezier(0.22, 1, 0.36, 1),
-    height 460ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-radius 460ms cubic-bezier(0.22, 1, 0.36, 1);
+    width 460ms var(--morph-easing),
+    height 460ms var(--morph-easing),
+    border-radius 460ms var(--morph-easing);
 }
+
+.island-shell--shake { animation: reminder-shake 700ms ease-in-out; }
+@keyframes reminder-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+@media (prefers-reduced-motion: reduce) { .island-shell--shake { animation: none; } }
 
 .island-pill-layer {
   position: absolute;

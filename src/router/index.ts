@@ -1,6 +1,4 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import IslandView from '@/views/IslandView.vue'
-import SettingsView from '@/views/SettingsView.vue'
 
 // 使用 hash 路由：打包后设置窗口通过 index.html#/settings 打开
 const router = createRouter({
@@ -9,12 +7,12 @@ const router = createRouter({
     {
       path: '/',
       name: 'island',
-      component: IslandView,
+      component: () => import('@/views/IslandView.vue'),
     },
     {
       path: '/settings',
       name: 'settings',
-      component: SettingsView,
+      component: () => import('@/views/SettingsView.vue'),
     },
   ],
 })

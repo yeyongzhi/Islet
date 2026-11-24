@@ -4,7 +4,6 @@ import { Briefcase, Coins, CalendarCheck } from 'lucide-vue-next'
 import { useIslandStore } from '@/stores/island'
 import { useSettingsStore } from '@/stores/settings'
 import { PANEL_OPTIONS } from '@/stores/panels'
-import { Card, CardContent } from '@/components/ui/card'
 
 const island = useIslandStore()
 const settings = useSettingsStore()
@@ -63,8 +62,7 @@ const tenureText = computed(() => {
 
 <template>
   <!-- 打工人面板：下班倒计时 / 发薪日 / 工龄 -->
-  <Card class="h-full gap-0 bg-muted/25 py-0 shadow-none">
-  <CardContent class="flex h-full flex-col justify-evenly gap-1 px-3 py-1">
+  <div class="flex h-full flex-col justify-evenly gap-1 px-3 py-1">
     <div class="flex items-center gap-3">
       <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
         <Briefcase class="size-4 text-primary" aria-hidden="true" />
@@ -72,7 +70,6 @@ const tenureText = computed(() => {
       <p class="min-w-0 flex-1 truncate text-sm">距下班</p>
       <div class="text-right">
         <p class="text-lg font-semibold tabular-nums">{{ offwork.text }}</p>
-        <p class="text-xs text-muted-foreground">{{ offwork.sub }}</p>
       </div>
     </div>
 
@@ -83,7 +80,6 @@ const tenureText = computed(() => {
       <p class="min-w-0 flex-1 truncate text-sm">距发工资</p>
       <div class="text-right">
         <p class="text-lg font-semibold tabular-nums">{{ paydayText.text }}</p>
-        <p class="text-xs text-muted-foreground">{{ paydayText.sub }}</p>
       </div>
     </div>
 
@@ -94,9 +90,7 @@ const tenureText = computed(() => {
       <p class="min-w-0 flex-1 truncate text-sm">入职至今</p>
       <div class="text-right">
         <p class="text-lg font-semibold tabular-nums">{{ tenureText.text }}</p>
-        <p class="text-xs text-muted-foreground">{{ tenureText.sub }}</p>
       </div>
     </div>
-  </CardContent>
-  </Card>
+  </div>
 </template>

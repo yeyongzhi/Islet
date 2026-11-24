@@ -57,6 +57,21 @@ jobs:
       - name: Build Windows NSIS installer
         run: pnpm tauri build --bundles nsis
 
+      - name: Inspect installer before upload
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem src-tauri/target/release/bundle/nsis/*-setup.exe)
+          if ($installers.Count -ne 1) { throw "Expected one installer, found $($installers.Count)" }
+          $destination = Join-Path $env:RUNNER_TEMP 'islet-installer-inspection'
+          7z x -y "-o$destination" $installers[0].FullName | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Installer extraction failed' }
+          $files = @(Get-ChildItem -LiteralPath $destination -Recurse -File)
+          if (-not ($files | Where-Object { $_.Name -eq 'islet.exe' })) { throw 'Application executable is missing' }
+          $forbidden = @($files | Where-Object { $_.Name -match '^(\.env(?:\..*)?|.*\.(?:pem|key|pfx|p12|log))$' -or $_.FullName -match '[\\/](?:node_modules|\.git|__pycache__)[\\/]' })
+          if ($forbidden.Count) { $forbidden | ForEach-Object { Write-Error "Unexpected file: $($_.FullName)" }; throw 'Installer content check failed' }
+          $files | ForEach-Object { Write-Output $_.FullName }
+          Get-FileHash -Algorithm SHA256 $installers[0].FullName
+
       - name: Prepare release notes
         shell: pwsh
         env:
@@ -67,7 +82,16 @@ jobs:
           $pattern = "(?ms)^## $tagPattern[^\r\n]*\r?\n(.*?)(?=^## |\z)"
           $match = [regex]::Match($changelog, $pattern)
           if (-not $match.Success) { throw "No CHANGELOG.md entry found for $env:RELEASE_TAG" }
-          $body = $match.Groups[1].Value.Trim()
+          $config = Get-Content .github/release.yml -Raw
+          $sectionPattern = "(?ms)^$tagPattern`:\s*\r?\n(.*?)(?=^v\d|\z)"
+          $section = [regex]::Match($config, $sectionPattern)
+          if (-not $section.Success) { throw "No release.yml entry found for $env:RELEASE_TAG" }
+          $bodyMatch = [regex]::Match($section.Groups[1].Value, '(?ms)^  body: \|\s*\r?\n(.*)')
+          if (-not $bodyMatch.Success) { throw "No release body for $env:RELEASE_TAG" }
+          $body = (($bodyMatch.Groups[1].Value -split "`r?`n" | ForEach-Object { $_ -replace '^    ', '' }) -join "`n").Trim()
+          $changes = $match.Groups[1].Value.Trim() -replace "`r`n", "`n"
+          if (-not $body.StartsWith('发布日期：')) { throw 'Release body must start with 发布日期' }
+          if (-not $body.Contains($changes)) { throw 'Release notes differ from CHANGELOG.md' }
           if ($env:RELEASE_TAG -match '-beta' -and $body -notmatch '测试版') {
             $body += "`n`n> 测试版，请先备份重要文档；遇到问题请通过 Issues 反馈。"
           }
@@ -79,5 +103,6 @@ jobs:
           tag_name: ${{ steps.release.outputs.tag }}
           name: ${{ steps.release.outputs.tag }}
           body_path: release-notes.md
+          draft: true
           prerelease: ${{ contains(steps.release.outputs.tag, '-') }}
           files: src-tauri/target/release/bundle/nsis/*-setup.exe

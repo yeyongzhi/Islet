@@ -11,6 +11,7 @@ import {
   FolderInput,
   Gauge,
   HardDrive,
+  Images,
   Eye,
   Music,
   Rocket,
@@ -44,6 +45,7 @@ export type PanelId =
   | 'water'
   | 'toilet'
   | 'eyecare'
+  | 'gallery'
 
 export type PanelCategory = '信息' | '工具' | '健康'
 
@@ -83,6 +85,7 @@ export const PANELS: PanelMeta[] = [
   { id: 'pomodoro', label: '番茄专注', icon: Timer, category: '工具', desc: '专注与休息计时' },
   { id: 'clipboard', label: '剪贴板', icon: ClipboardList, category: '工具', desc: '复制历史暂存' },
   { id: 'transfer', label: '中转站', icon: FolderInput, category: '工具', desc: '文件暂存与拖出使用' },
+  { id: 'gallery', label: '相册', icon: Images, category: '工具', desc: '浏览本机图片' },
   { id: 'quickstart', label: '快速启动', icon: Rocket, category: '工具', desc: '常用应用/网址一键打开' },
   { id: 'offwork', label: '下班倒计时', icon: Briefcase, category: '工具', desc: '下班/发薪日/工龄，可自定义' },
   { id: 'sysinfo', label: '系统信息', icon: Cpu, category: '工具', desc: '开机时长与电池状态' },
@@ -133,6 +136,7 @@ export const PANEL_OPTIONS: Record<PanelId, PanelOptionDef[]> = {
   clipboard: [],
   transfer: [],
   quickstart: [],
+  gallery: [],
   offwork: [
     { key: 'endTime', label: '下班时间', type: 'select', default: '18:00', options: TIME_OPTIONS },
     { key: 'payday', label: '发薪日（每月几号）', type: 'select', default: '10', options: Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: `${i + 1} 号` })) },

@@ -1,6 +1,6 @@
 [package]
 name = "islet"
-version = "0.1.0-beta1"
+version = "0.1.0-beta2"
 description = "Islet（灵岛）- Windows 桌面灵动岛与轻量信息工具"
 authors = ["Aurora"]
 license = ""
@@ -44,5 +44,6 @@ windows = { version = "0.62", features = [
     "Win32_UI_Input_Ime",
     "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Shell",
 ] }
 windows-future = "0.3"

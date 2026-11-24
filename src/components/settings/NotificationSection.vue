@@ -49,6 +49,14 @@ const NOTIFY_OPTIONS = [
 ] as const
 
 type NotifyKey = (typeof NOTIFY_OPTIONS)[number]['key']
+const QUIET_OVERRIDES = {
+  notifyBattery: { key: 'notifyQuietBattery', label: '低电量时允许突破勿扰' },
+  notifyNetwork: { key: 'notifyQuietNetwork', label: '网络断开时允许突破勿扰' },
+  notifyDisk: { key: 'notifyQuietDisk', label: '磁盘空间不足时允许突破勿扰' },
+} as const
+function quietOverride(key: NotifyKey) {
+  return QUIET_OVERRIDES[key as keyof typeof QUIET_OVERRIDES]
+}
 </script>
 
 <template>
@@ -81,11 +89,9 @@ type NotifyKey = (typeof NOTIFY_OPTIONS)[number]['key']
           @update:model-value="(v) => settings.set('notifyDoNotDisturb', !!v)"
         />
       </div>
-      <div class="flex items-center justify-between gap-3"><div><p class="text-sm">定时勿扰</p><p class="text-xs text-muted-foreground">同一开始和结束时间表示全天</p></div><Switch :model-value="settings.prefs.notifyQuietSchedule" aria-label="定时勿扰" @update:model-value="v => settings.set('notifyQuietSchedule', !!v)" /></div>
+      <div class="flex items-center justify-between gap-3 rounded-lg border p-3"><div><p class="text-sm">定时勿扰</p><p class="text-xs text-muted-foreground">同一开始和结束时间表示全天</p></div><Switch :model-value="settings.prefs.notifyQuietSchedule" aria-label="定时勿扰" @update:model-value="v => settings.set('notifyQuietSchedule', !!v)" /></div>
       <div v-if="settings.prefs.notifyQuietSchedule" class="flex items-center gap-2"><span class="text-sm">从</span><Select :model-value="String(settings.prefs.notifyQuietStart)" @update:model-value="v => settings.set('notifyQuietStart', Number(v))"><SelectTrigger class="w-28" aria-label="勿扰开始时间"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem v-for="n in 24" :key="n" :value="String(n-1)">{{ String(n-1).padStart(2,'0') }}:00</SelectItem></SelectGroup></SelectContent></Select><span class="text-sm">至</span><Select :model-value="String(settings.prefs.notifyQuietEnd)" @update:model-value="v => settings.set('notifyQuietEnd', Number(v))"><SelectTrigger class="w-28" aria-label="勿扰结束时间"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem v-for="n in 24" :key="n" :value="String(n-1)">{{ String(n-1).padStart(2,'0') }}:00</SelectItem></SelectGroup></SelectContent></Select></div>
-      <div class="flex items-center justify-between gap-3"><span class="text-sm">全屏时勿扰</span><Switch :model-value="settings.prefs.notifyQuietFullscreen" aria-label="全屏时勿扰" @update:model-value="v => settings.set('notifyQuietFullscreen', !!v)" /></div>
-      <p class="text-xs text-muted-foreground">勿扰期间允许突破的警告：</p>
-      <div v-for="option in [{ key: 'notifyQuietBattery', label: '低电量' }, { key: 'notifyQuietNetwork', label: '网络断开' }, { key: 'notifyQuietDisk', label: '磁盘空间不足' }] as const" :key="option.key" class="flex items-center justify-between gap-3"><span class="text-sm">{{ option.label }}</span><Switch :model-value="settings.prefs[option.key]" :aria-label="option.label" @update:model-value="v => settings.set(option.key, !!v)" /></div>
+      <div class="flex items-center justify-between gap-3 rounded-lg border p-3"><span class="text-sm">全屏时勿扰</span><Switch :model-value="settings.prefs.notifyQuietFullscreen" aria-label="全屏时勿扰" @update:model-value="v => settings.set('notifyQuietFullscreen', !!v)" /></div>
       <p class="text-xs text-muted-foreground">同类状态合并；警告优先，普通消息最多等待 10 秒，过期丢弃。</p>
       <div class="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
         <div class="flex flex-col">
@@ -111,10 +117,9 @@ type NotifyKey = (typeof NOTIFY_OPTIONS)[number]['key']
 
     <Separator />
 
-    <div class="flex items-center justify-between gap-3"><span class="text-sm">磁盘剩余空间警告阈值</span><Select :model-value="String(settings.prefs.diskWarningPercent)" @update:model-value="v => settings.set('diskWarningPercent', Number(v))"><SelectTrigger class="w-28" aria-label="磁盘剩余空间警告阈值"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem v-for="v in [5,10,15,20,25]" :key="v" :value="String(v)">{{ v }}%</SelectItem></SelectGroup></SelectContent></Select></div>
-    <div class="flex items-center justify-between gap-3"><div><p class="text-sm">本次运行的通知历史</p><p class="text-xs text-muted-foreground">仅记录类型和时间，不记录通知正文或剪贴板内容；退出后清除</p></div><Switch :model-value="settings.prefs.notifyHistoryEnabled" aria-label="通知历史" @update:model-value="v => settings.set('notifyHistoryEnabled', !!v)" /></div>
+    <div class="flex items-center justify-between gap-3 rounded-lg border p-3"><div><p class="text-sm">本次运行的通知历史</p><p class="text-xs text-muted-foreground">仅记录类型和时间，不记录通知正文或剪贴板内容；退出后清除</p></div><Switch :model-value="settings.prefs.notifyHistoryEnabled" aria-label="通知历史" @update:model-value="v => settings.set('notifyHistoryEnabled', !!v)" /></div>
     <div v-if="settings.prefs.notifyHistoryEnabled" class="flex flex-col gap-2 rounded-lg border p-3"><div class="flex items-center justify-between"><span class="text-sm">最近通知</span><AlertDialog><AlertDialogTrigger as-child><Button size="sm" variant="destructive" :disabled="!history.length">清空</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>清空通知历史？</AlertDialogTitle><AlertDialogDescription>本次运行的通知类型与时间将被清除。</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction class="bg-destructive text-destructive-foreground" @click="emit('notification://clear-history')">清空</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></div><p v-if="!history.length" class="text-xs text-muted-foreground">暂无记录</p><div v-for="(entry, index) in history" :key="`${entry.time}-${index}`" class="flex justify-between text-xs"><span>{{ NOTIFY_OPTIONS.find(option => option.key === `notify${entry.kind[0]?.toUpperCase()}${entry.kind.slice(1)}`)?.label || entry.kind }}</span><span class="text-muted-foreground">{{ new Date(entry.time).toLocaleString() }}</span></div></div>
-    <div class="flex items-center justify-between gap-3"><div><p class="text-sm">健康提醒仅在指定时段</p><p class="text-xs text-muted-foreground">适用于久坐、护眼和喝水；锁屏或睡眠仍按实际时间计时，恢复后在允许时段提醒。</p></div><Switch :model-value="settings.prefs.reminderWorkHours" aria-label="健康提醒仅在指定时段" @update:model-value="v => settings.set('reminderWorkHours', !!v)" /></div>
+    <div class="flex items-center justify-between gap-3 rounded-lg border p-3"><div><p class="text-sm">健康提醒仅在指定时段</p><p class="text-xs text-muted-foreground">适用于久坐、护眼和喝水；锁屏或睡眠仍按实际时间计时，恢复后在允许时段提醒。</p></div><Switch :model-value="settings.prefs.reminderWorkHours" aria-label="健康提醒仅在指定时段" @update:model-value="v => settings.set('reminderWorkHours', !!v)" /></div>
     <div v-if="settings.prefs.reminderWorkHours" class="flex items-center gap-2"><span class="text-sm">从</span><Select :model-value="String(settings.prefs.reminderStartHour)" @update:model-value="v => settings.set('reminderStartHour', Number(v))"><SelectTrigger class="w-28" aria-label="健康提醒开始时间"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem v-for="n in 24" :key="n" :value="String(n-1)">{{ String(n-1).padStart(2,'0') }}:00</SelectItem></SelectGroup></SelectContent></Select><span class="text-sm">至</span><Select :model-value="String(settings.prefs.reminderEndHour)" @update:model-value="v => settings.set('reminderEndHour', Number(v))"><SelectTrigger class="w-28" aria-label="健康提醒结束时间"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem v-for="n in 24" :key="n" :value="String(n-1)">{{ String(n-1).padStart(2,'0') }}:00</SelectItem></SelectGroup></SelectContent></Select></div>
 
     <section
@@ -122,12 +127,9 @@ type NotifyKey = (typeof NOTIFY_OPTIONS)[number]['key']
       :class="settings.prefs.notifyEnabled ? '' : 'pointer-events-none opacity-50'"
     >
       <p class="text-xs text-muted-foreground">通知类型（灵动岛以机器人表情 + 气泡展示）</p>
-      <div
-        v-for="opt in NOTIFY_OPTIONS"
-        :key="opt.key"
-        class="flex items-center justify-between rounded-lg border border-border px-3 py-2.5"
-      >
-        <div class="flex min-w-0 items-center gap-2">
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div v-for="opt in NOTIFY_OPTIONS" :key="opt.key" class="flex flex-col gap-3 rounded-lg border border-border p-3">
+        <div class="flex items-center justify-between gap-2"><div class="flex min-w-0 items-center gap-2">
           <component :is="opt.icon" class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <div class="flex min-w-0 flex-col">
             <span class="truncate text-sm font-medium">{{ opt.label }}</span>
@@ -138,8 +140,10 @@ type NotifyKey = (typeof NOTIFY_OPTIONS)[number]['key']
           :model-value="settings.prefs[opt.key as NotifyKey]"
           :aria-label="opt.label"
           @update:model-value="(v) => settings.set(opt.key as NotifyKey, !!v)"
-        />
-      </div>
+        /></div>
+        <div v-if="quietOverride(opt.key)" class="flex items-center justify-between gap-2"><span class="text-xs text-muted-foreground">{{ quietOverride(opt.key)!.label }}</span><Switch :model-value="settings.prefs[quietOverride(opt.key)!.key]" :aria-label="quietOverride(opt.key)!.label" @update:model-value="v => settings.set(quietOverride(opt.key)!.key, !!v)" /></div>
+        <div v-if="opt.key === 'notifyDisk'" class="flex items-center justify-between gap-2"><span class="text-xs text-muted-foreground">剩余空间阈值</span><Select :model-value="String(settings.prefs.diskWarningPercent)" @update:model-value="v => settings.set('diskWarningPercent', Number(v))"><SelectTrigger class="w-24" aria-label="磁盘剩余空间警告阈值"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem v-for="v in [5,10,15,20,25]" :key="v" :value="String(v)">{{ v }}%</SelectItem></SelectGroup></SelectContent></Select></div>
+      </div></div>
     </section>
   </div>
 </template>

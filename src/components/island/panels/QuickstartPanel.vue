@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
+import { toast } from 'vue-sonner'
 import { Rocket } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { useQuickstartStore } from '@/stores/panelData'
@@ -7,20 +8,20 @@ import { useQuickstartStore } from '@/stores/panelData'
 const quickstart = useQuickstartStore()
 quickstart.load()
 
-const items = computed(() => quickstart.data?.slice(0, 8) ?? [])
+const items = computed(() => quickstart.data ?? [])
 
 function isUrl(path: string) {
   return /^https?:\/\//i.test(path)
 }
 
 function open(path: string) {
-  quickstart.launch(path)
+  quickstart.launch(path).catch(() => toast.error('启动失败，请检查路径或链接'))
 }
 </script>
 
 <template>
   <!-- 快速启动：一键打开常用应用/网址 -->
-  <div class="grid h-full grid-cols-4 content-center gap-2 px-2">
+  <div class="grid h-full grid-cols-4 content-start gap-2 overflow-y-auto px-2">
     <Button
       v-for="it in items"
       :key="it.id"

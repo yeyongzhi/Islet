@@ -132,8 +132,24 @@ export const useQuickstartStore = defineStore('quickstart', () => {
               typeof (it as QuickstartItem).path === 'string',
           )
           .map((it) => ({ id: it.id || crypto.randomUUID(), name: it.name, path: it.path }))
-      : [],
+      : [
+          { id: 'system-pc', name: '此电脑', path: 'shell:MyComputerFolder' },
+          { id: 'system-recycle', name: '回收站', path: 'shell:RecycleBinFolder' },
+          { id: 'system-cmd', name: '命令提示符', path: 'cmd.exe' },
+          { id: 'system-powershell', name: 'PowerShell', path: 'powershell.exe' },
+          { id: 'system-settings', name: '设置', path: 'ms-settings:' },
+          { id: 'system-explorer', name: '文件资源管理器', path: 'explorer.exe' },
+          { id: 'system-calculator', name: '计算器', path: 'calc.exe' },
+          { id: 'system-notepad', name: '记事本', path: 'notepad.exe' },
+          { id: 'system-taskmgr', name: '任务管理器', path: 'taskmgr.exe' },
+          { id: 'system-control', name: '控制面板', path: 'control.exe' },
+        ],
   )
+
+  function update(id: string, name: string, path: string) {
+    const item = data.value?.find((entry) => entry.id === id)
+    if (item) { item.name = name; item.path = path; persist() }
+  }
 
   function add(name: string, path: string) {
     data.value!.push({ id: crypto.randomUUID(), name, path })
@@ -146,8 +162,48 @@ export const useQuickstartStore = defineStore('quickstart', () => {
   }
 
   function launch(path: string) {
-    invoke('launch_path', { path }).catch(() => {})
+    return invoke('launch_path', { path })
   }
 
-  return { data, error, load, add, remove, launch }
+  return { data, error, load, add, update, remove, launch }
+})
+
+
+export interface GalleryData { paths: string[]; columns: number; autoPlay: boolean }
+export const useGalleryStore = defineStore('gallery', () => {
+  const store = usePanelData<GalleryData>('gallery', (raw) => {
+    const value = raw && typeof raw === 'object' ? raw as Partial<GalleryData> : {}
+    return { paths: Array.isArray(value.paths) ? value.paths.filter((p): p is string => typeof p === 'string') : [], columns: [1, 2, 3, 4].includes(value.columns ?? 0) ? value.columns! : 2, autoPlay: value.autoPlay === true }
+  })
+  let loading: Promise<void> | undefined
+  async function load() {
+    if (loading) return loading
+    if (store.loaded.value) return
+    loading = (async () => {
+      await store.load()
+      // 首次使用时从本机图片目录选取，空目录保留空状态。
+      try {
+        const raw = await invoke<string | null>('load_panel_data', { key: 'gallery' })
+        if (raw === null && store.data.value) {
+          store.data.value.paths = await invoke<string[]>('default_gallery_images')
+          store.persist()
+        }
+      } catch { /* 保留读取错误 */ }
+    })()
+    try { await loading } finally { loading = undefined }
+  }
+  async function choose() {
+    const paths = await invoke<string[]>('choose_gallery_images')
+    if (!store.data.value) return
+    store.data.value.paths = [...new Set([...store.data.value.paths, ...paths])]
+    store.persist()
+  }
+  function remove(path: string) { if (store.data.value) { store.data.value.paths = store.data.value.paths.filter((item) => item !== path); store.persist() } }
+  function configure(key: 'columns' | 'autoPlay', value: number | boolean) {
+    if (!store.data.value) return
+    if (key === 'columns' && typeof value === 'number') store.data.value.columns = value
+    if (key === 'autoPlay' && typeof value === 'boolean') store.data.value.autoPlay = value
+    store.persist()
+  }
+  return { ...store, load, choose, remove, configure }
 })

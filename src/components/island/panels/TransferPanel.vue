@@ -132,7 +132,6 @@ onMounted(async () => {
           <Inbox class="size-6 text-muted-foreground" aria-hidden="true" />
         </div>
         <p class="text-sm text-muted-foreground">把文件拖到这里暂存</p>
-        <p class="text-xs text-muted-foreground/70">仅保存路径；按住条目或空白处拖出</p>
       </div>
 
       <!-- 文件列表 -->
