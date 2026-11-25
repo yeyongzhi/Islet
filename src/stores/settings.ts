@@ -8,10 +8,11 @@ export type AppearanceMode = 'light' | 'dark' | 'system'
 export type IslandEdge = 'top' | 'left' | 'right' | 'bottom'
 export type PanelSize = 'small' | 'medium' | 'large'
 export type CompactContent = 'weather' | 'music' | 'monitor' | 'network' | 'countdown' | 'pomodoro'
-export type CompactItem = 'face' | 'time' | 'weather'
+export type CompactItem = 'face' | 'time' | 'weather' | 'date' | 'weekday' | 'battery'
 export const COMPACT_ITEMS: { id: CompactItem; label: string }[] = [
   { id: 'face', label: '灵岛表情' }, { id: 'time', label: '时间' },
-  { id: 'weather', label: '天气' },
+  { id: 'weather', label: '天气' }, { id: 'date', label: '日期' },
+  { id: 'weekday', label: '星期' }, { id: 'battery', label: '电量' },
 ]
 export type PanelIndicatorStyle = 'dots' | 'text'
 
@@ -33,12 +34,14 @@ export interface Preferences {
   panelSize: PanelSize
   compactContent: CompactContent
   compactItems: CompactItem[]
+  compactPositions: Partial<Record<CompactItem, number>>
   animationCurve: 'smooth' | 'ease-in' | 'ease-out' | 'ease-in-out'
   reminderShake: boolean
   expandMode: 'hover' | 'click'
   hoverDelay: number
   leaveDelay: number
   panelIndicatorStyle: PanelIndicatorStyle
+  quickPanelSwitch: boolean
   rememberPanel: boolean
   lastPanel: PanelId
   favoritePanels: PanelId[]
@@ -70,6 +73,8 @@ export interface Preferences {
   notifyHistoryEnabled: boolean
   notifyDuration: number
   notifyClipboard: boolean
+  notifyCapsLock: boolean
+  notifyNumLock: boolean
   notifyIme: boolean
   notifyNetwork: boolean
   notifyBattery: boolean
@@ -112,12 +117,14 @@ const DEFAULTS: Preferences = {
   panelSize: 'small' as PanelSize,
   compactContent: 'weather',
   compactItems: ['face', 'time', 'weather'],
+  compactPositions: {},
   animationCurve: 'smooth',
   reminderShake: true,
   expandMode: 'hover',
   hoverDelay: 200,
   leaveDelay: 500,
   panelIndicatorStyle: 'dots',
+  quickPanelSwitch: false,
   rememberPanel: false,
   lastPanel: 'calendar',
   favoritePanels: [],
@@ -148,6 +155,8 @@ const DEFAULTS: Preferences = {
   notifyHistoryEnabled: false,
   notifyDuration: 3,
   notifyClipboard: true,
+  notifyCapsLock: true,
+  notifyNumLock: true,
   notifyIme: true,
   notifyNetwork: true,
   notifyBattery: true,
@@ -339,6 +348,11 @@ export const useSettingsStore = defineStore('settings', () => {
     persist()
   }
 
+  function setCompactPosition(id: CompactItem, left: number) {
+    prefs.value.compactPositions = { ...prefs.value.compactPositions, [id]: Math.max(0, Math.min(250, left)) }
+    persist()
+  }
+
   function setCompactItems(items: CompactItem[]) {
     prefs.value.compactItems = items
     persist()
@@ -366,5 +380,5 @@ export const useSettingsStore = defineStore('settings', () => {
     persist()
   }
 
-  return { prefs, loaded, load, set, setCompactItems, getPanelOption, setPanelOption, applyAppearance, updateIslandLayout }
+  return { prefs, loaded, load, set, setCompactItems, setCompactPosition, getPanelOption, setPanelOption, applyAppearance, updateIslandLayout }
 })

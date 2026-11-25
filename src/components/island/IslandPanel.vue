@@ -33,7 +33,7 @@ const WeatherPanel = defineAsyncComponent(() => import('./panels/WeatherPanel.vu
 const GalleryPanel = defineAsyncComponent(() => import('./panels/GalleryPanel.vue'))
 import { usePanelsStore, type PanelId } from '@/stores/panels'
 import { useIslandStore } from '@/stores/island'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { useSettingsStore } from '@/stores/settings'
 import { useNotifyStore, type NotifyItem } from '@/stores/notify'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -134,7 +134,7 @@ async function hideIsland() {
         <Button variant="ghost" size="sm" class="h-7 px-1 text-xs" @pointerdown.stop @click.stop="notify.snooze()">稍后</Button>
         <Button variant="ghost" size="sm" class="h-7 px-1 text-xs" @pointerdown.stop @click.stop="notify.dismiss()">关闭</Button>
       </div>
-      <DropdownMenu>
+      <DropdownMenu v-if="settings.prefs.quickPanelSwitch">
         <DropdownMenuTrigger as-child>
           <Button variant="ghost" size="icon" class="absolute left-0 top-0 size-8" aria-label="选择面板" title="选择面板" @pointerdown.stop>
             <LayoutGrid class="size-4" aria-hidden="true" />
@@ -237,7 +237,7 @@ async function hideIsland() {
       class="relative flex shrink-0 items-center justify-center pt-1"
       @wheel="handleWheel"
     >
-      <div v-if="settings.prefs.panelIndicatorStyle === 'dots'" class="flex min-w-0 max-w-[calc(100%-4rem)] shrink items-center justify-center overflow-x-auto [scrollbar-width:none]">
+      <ScrollArea v-if="settings.prefs.panelIndicatorStyle === 'dots'" class="min-w-0 max-w-[calc(100%-4rem)]"><div class="flex w-max items-center justify-center">
         <Button
           v-for="p in panels.visiblePanels"
           :key="p.id"
@@ -253,7 +253,7 @@ async function hideIsland() {
             :class="panels.activeId === p.id ? 'h-1.5 w-4 bg-foreground' : 'size-1.5 bg-muted-foreground/40 hover:bg-muted-foreground/70'"
           />
         </Button>
-      </div>
+      </div><ScrollBar orientation="horizontal" /></ScrollArea>
       <span v-if="settings.prefs.panelIndicatorStyle === 'text'" class="text-xs font-medium text-foreground">
         {{ panels.visiblePanels.find((p) => p.id === panels.activeId)?.label }}<span class="ml-1 font-normal text-muted-foreground">{{ panels.index + 1 }} / {{ panels.visiblePanels.length }}</span>
       </span>

@@ -11,6 +11,7 @@ import {
   ClipboardCheck,
   Eye,
   Languages,
+  Keyboard,
   Music2,
   Volume2,
   Timer,
@@ -42,6 +43,8 @@ const notify = useNotifyStore()
 const NOTIFY_ICONS: Record<string, Component> = {
   clipboard: ClipboardCheck,
   ime: Languages,
+  capsLock: Keyboard,
+  numLock: Keyboard,
   network: Wifi,
   battery: BatteryCharging,
   music: Music2,
@@ -125,7 +128,7 @@ function compactDims(): { w: number; h: number; r: number } {
   const r = settings.prefs.borderRadius
   if (settings.prefs.islandEdge === 'left' || settings.prefs.islandEdge === 'right') {
     // 侧边停靠：竖向长条（胶囊圆角封顶为宽度一半）
-    return { w: 32, h: 220, r: Math.min(16, Math.max(6, r + 4)) }
+    return { w: 112, h: 220, r: Math.min(20, Math.max(6, r + 4)) }
   }
   return { w: 250, h: 40, r: Math.min(20, Math.max(2, r + 4)) }
 }
@@ -203,6 +206,13 @@ function handleLeave() {
   if (opening) openRequest++
   if (!open.value || pinned.value) return
   collapseSoon()
+}
+
+/** 指针真正离开窗口时关闭弹出的选择器或菜单，进入传送浮层不触发。 */
+function handleWindowExit(event: MouseEvent) {
+  if (event.relatedTarget || !document.querySelector('[role="listbox"], [role="menu"]')) return
+  document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  if (open.value && !pinned.value) collapseSoon()
 }
 
 /** 收起流程：壳层先动画收拢回胶囊，动画结束后窗口再缩小 */
@@ -387,6 +397,7 @@ watch(
 )
 
 onMounted(async () => {
+  document.addEventListener('mouseout', handleWindowExit)
   // 岛悬浮窗：页面背景透明（窗口本身透明）
   document.body.style.background = 'transparent'
   // 按持久化偏好应用初始停靠布局
@@ -415,6 +426,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('mouseout', handleWindowExit)
   window.clearTimeout(collapseTimer)
   window.clearTimeout(leaveTimer)
   window.clearTimeout(hoverTimer)

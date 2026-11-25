@@ -12,11 +12,11 @@ Islet（灵岛）是一款 Windows 桌面常驻小部件：默认收起为屏幕
 
 ## 当前版本
 
-`v0.1.0-beta2`（Beta 预览版）
+`v0.1.0-beta3`（Beta 预览版）
 
 ## 最新版本
 
-Beta 发布页面：[v0.1.0-beta2（Windows x64）](https://github.com/yeyongzhi/Islet/releases/tag/v0.1.0-beta2)。正式版发布后可从 [最新正式版本](https://github.com/yeyongzhi/Islet/releases/latest) 获取。
+Beta 发布页面：[v0.1.0-beta3（Windows x64）](https://github.com/yeyongzhi/Islet/releases/tag/v0.1.0-beta3)。正式版发布后可从 [最新正式版本](https://github.com/yeyongzhi/Islet/releases/latest) 获取。
 
 ## 功能清单
 
@@ -26,7 +26,7 @@ Beta 发布页面：[v0.1.0-beta2（Windows x64）](https://github.com/yeyongzhi
 - ✅ 天气接入 Open-Meteo；音乐支持系统播放器控制；提供剪贴板历史和本地文件中转
 - ✅ 拖动换位，顶/左/右/底四边吸附，位置跨启动记忆
 - ✅ 设置窗口：外观（模式/主题色/圆角/字号）、数据管理、关于
-- ✅ 系统托盘退出、面板设置菜单与收起态内容排序
+- ✅ 系统托盘退出、面板设置菜单与收起态内容位置调整
 
 ## 安装与使用
 

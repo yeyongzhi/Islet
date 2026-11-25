@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   Eye,
   Languages,
+  Keyboard,
   Music2,
   Volume2,
   Timer,
@@ -34,10 +35,12 @@ watch(() => settings.prefs.notifyHistoryEnabled, () => { window.setTimeout(() =>
 
 const NOTIFY_OPTIONS = [
   { key: 'notifyClipboard', icon: ClipboardCheck, label: '剪贴板复制', desc: '复制文本后轻提示内容预览' },
+  { key: 'notifyCapsLock', icon: Keyboard, label: '大写锁定', desc: '大写锁定开启或关闭时提示' },
+  { key: 'notifyNumLock', icon: Keyboard, label: '数字键盘', desc: '数字键盘开启或关闭时提示' },
   { key: 'notifyIme', icon: Languages, label: '输入法中英文切换', desc: '切换中/英文输入时提示' },
   { key: 'notifyNetwork', icon: Wifi, label: '网络连接变化', desc: '网络断开或恢复连接时提示' },
   { key: 'notifyBattery', icon: BatteryCharging, label: '电池状态', desc: '接通电源、低电量和充满电提醒' },
-  { key: 'notifyMusic', icon: Music2, label: '音乐切歌', desc: '系统播放器切歌时提示曲名' },
+  { key: 'notifyMusic', icon: Music2, label: '音乐播放状态', desc: '播放、暂停或切换曲目时提示' },
   { key: 'notifyPomodoro', icon: Timer, label: '番茄钟提醒', desc: '专注结束、休息结束时提示' },
   { key: 'notifySedentary', icon: Timer, label: '久坐提醒', desc: '久坐卡片到点时提示起身活动' },
   { key: 'notifyEyecare', icon: Eye, label: '护眼提醒', desc: '护眼卡片到点时提示远眺放松' },
@@ -49,6 +52,12 @@ const NOTIFY_OPTIONS = [
 ] as const
 
 type NotifyKey = (typeof NOTIFY_OPTIONS)[number]['key']
+const NOTIFY_GROUPS = [
+  { label: '系统状态', keys: ['notifyIme', 'notifyCapsLock', 'notifyNumLock', 'notifyNetwork', 'notifyBattery', 'notifyVolume', 'notifyDisk'] },
+  { label: '应用与媒体', keys: ['notifyClipboard', 'notifyMusic'] },
+  { label: '日程与健康', keys: ['notifyPomodoro', 'notifySedentary', 'notifyEyecare', 'notifyCountdown', 'notifyEvent', 'notifyWater'] },
+] as const
+
 const QUIET_OVERRIDES = {
   notifyBattery: { key: 'notifyQuietBattery', label: '低电量时允许突破勿扰' },
   notifyNetwork: { key: 'notifyQuietNetwork', label: '网络断开时允许突破勿扰' },
@@ -127,8 +136,8 @@ function quietOverride(key: NotifyKey) {
       :class="settings.prefs.notifyEnabled ? '' : 'pointer-events-none opacity-50'"
     >
       <p class="text-xs text-muted-foreground">通知类型（灵动岛以机器人表情 + 气泡展示）</p>
-      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      <div v-for="opt in NOTIFY_OPTIONS" :key="opt.key" class="flex flex-col gap-3 rounded-lg border border-border p-3">
+      <div v-for="group in NOTIFY_GROUPS" :key="group.label" class="flex flex-col gap-2"><h4 class="text-sm font-medium">{{ group.label }}</h4><div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div v-for="opt in NOTIFY_OPTIONS.filter(option => (group.keys as readonly string[]).includes(option.key))" :key="opt.key" class="flex flex-col gap-3 rounded-lg border border-border p-3">
         <div class="flex items-center justify-between gap-2"><div class="flex min-w-0 items-center gap-2">
           <component :is="opt.icon" class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <div class="flex min-w-0 flex-col">
@@ -143,7 +152,7 @@ function quietOverride(key: NotifyKey) {
         /></div>
         <div v-if="quietOverride(opt.key)" class="flex items-center justify-between gap-2"><span class="text-xs text-muted-foreground">{{ quietOverride(opt.key)!.label }}</span><Switch :model-value="settings.prefs[quietOverride(opt.key)!.key]" :aria-label="quietOverride(opt.key)!.label" @update:model-value="v => settings.set(quietOverride(opt.key)!.key, !!v)" /></div>
         <div v-if="opt.key === 'notifyDisk'" class="flex items-center justify-between gap-2"><span class="text-xs text-muted-foreground">剩余空间阈值</span><Select :model-value="String(settings.prefs.diskWarningPercent)" @update:model-value="v => settings.set('diskWarningPercent', Number(v))"><SelectTrigger class="w-24" aria-label="磁盘剩余空间警告阈值"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem v-for="v in [5,10,15,20,25]" :key="v" :value="String(v)">{{ v }}%</SelectItem></SelectGroup></SelectContent></Select></div>
-      </div></div>
+      </div></div></div>
     </section>
   </div>
 </template>

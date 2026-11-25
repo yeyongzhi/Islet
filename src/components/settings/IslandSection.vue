@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { Switch } from '@/components/ui/switch'
+import { compactLayout } from '@/lib/compactLayout'
 import IslandPill from '@/components/island/IslandPill.vue'
 import { COMPACT_ITEMS, useSettingsStore, type CompactItem } from '@/stores/settings'
 
@@ -13,15 +14,6 @@ function label(id: CompactItem) { return COMPACT_ITEMS.find(item => item.id === 
 function toggle(id: CompactItem, value: boolean) {
   settings.setCompactItems(value ? [...enabled.value, id] : enabled.value.filter(item => item !== id))
 }
-function move(id: CompactItem, to: number) {
-  const items = [...enabled.value]
-  const from = items.indexOf(id)
-  const target = Math.max(0, Math.min(items.length - 1, to))
-  if (from < 0 || from === target) return
-  items.splice(from, 1)
-  items.splice(target, 0, id)
-  settings.setCompactItems(items)
-}
 function startDrag(id: CompactItem, event: PointerEvent) {
   if (event.button !== 0) return
   dragging.value = id
@@ -31,12 +23,25 @@ function startDrag(id: CompactItem, event: PointerEvent) {
 }
 function onDrag(event: PointerEvent) {
   if (!dragging.value || !preview.value) return
-  const items = [...preview.value.querySelectorAll<HTMLElement>('[data-compact-item]')]
-  if (!items.length) return
-  const target = items.findIndex(item => event.clientX < item.getBoundingClientRect().left + item.getBoundingClientRect().width / 2)
-  move(dragging.value, target < 0 ? items.length - 1 : target)
+  const rect = preview.value.getBoundingClientRect()
+  const layout = compactLayout(enabled.value, settings.prefs.compactPositions)
+  const index = layout.findIndex(item => item.id === dragging.value)
+  const item = layout[index]
+  if (!item) return
+  const min = index ? layout[index - 1]!.left + layout[index - 1]!.width + 2 : 0
+  const max = index + 1 < layout.length ? layout[index + 1]!.left - item.width - 2 : 250 - item.width
+  settings.setCompactPosition(item.id, Math.max(min, Math.min(max, (event.clientX - rect.left) * 250 / rect.width - item.width / 2)))
 }
-function moveBy(id: CompactItem, direction: number) { move(id, enabled.value.indexOf(id) + direction) }
+function moveBy(id: CompactItem, direction: number) {
+  const layout = compactLayout(enabled.value, settings.prefs.compactPositions)
+  const index = layout.findIndex(item => item.id === id)
+  const item = layout[index]
+  if (!item) return
+  const min = index ? layout[index - 1]!.left + layout[index - 1]!.width + 2 : 0
+  const max = index + 1 < layout.length ? layout[index + 1]!.left - item.width - 2 : 250 - item.width
+  settings.setCompactPosition(id, Math.max(min, Math.min(max, item.left + direction * 4)))
+}
+
 function endDrag() {
   dragging.value = null
   window.removeEventListener('pointermove', onDrag)
@@ -47,11 +52,11 @@ onBeforeUnmount(endDrag)
 </script>
 <template>
   <div class="flex max-w-xl flex-col gap-5">
-    <div><h3 class="text-sm font-semibold">收起状态</h3><p class="mt-1 text-xs text-muted-foreground">选择显示内容，直接拖动预览中的内容调整顺序，修改立即生效；也可聚焦内容后使用左右方向键。</p></div>
+    <div><h3 class="text-sm font-semibold">收起状态</h3><p class="mt-1 text-xs text-muted-foreground">选择显示内容，水平拖动预览中的内容调整位置，元素不会重叠，修改立即生效；也可聚焦内容后使用左右方向键。</p></div>
     <div class="flex justify-center rounded-lg bg-muted/30 p-4">
       <div ref="preview" class="h-10 w-[250px] overflow-hidden bg-background text-foreground" :style="{ borderRadius: `${Math.min(20, settings.prefs.borderRadius + 4)}px`, boxShadow: 'var(--island-shadow)' }" aria-label="收起状态预览"><IslandPill edit-mode @drag-start="startDrag" @move="moveBy" /></div>
     </div>
-    <p class="text-xs text-muted-foreground">番茄钟运行和通知出现时会临时优先显示；左右停靠时显示紧凑图标。内容过多时可能被截断。</p>
+    <p class="text-xs text-muted-foreground">番茄钟运行和通知出现时会临时优先显示；左右停靠时纵向显示所选内容。内容过多时可能被截断。</p>
     <div class="flex flex-col gap-2" aria-label="已显示的内容">
       <div v-for="id in enabled" :key="id" class="flex items-center gap-2 rounded-lg border p-3">
         <span class="min-w-0 flex-1 text-sm">{{ label(id) }}</span>

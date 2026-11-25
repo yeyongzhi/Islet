@@ -20,7 +20,8 @@ export const useIslandStore = defineStore('island', () => {
   const timeText = computed(() => {
     const h = now.value.getHours().toString().padStart(2, '0')
     const m = now.value.getMinutes().toString().padStart(2, '0')
-    return `${h}:${m}`
+    const s = now.value.getSeconds().toString().padStart(2, '0')
+    return `${h}:${m}:${s}`
   })
 
   const dateText = computed(() => {

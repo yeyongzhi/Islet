@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { Check } from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -77,7 +78,8 @@ const FONT_OPTIONS = [
     <section class="flex flex-col gap-3">
       <h3 class="text-sm font-semibold">主题色</h3>
       <div class="flex flex-wrap gap-2">
-        <button
+        <Button
+          variant="ghost" size="icon"
           v-for="theme in THEME_COLORS"
           :key="theme.id"
           type="button"
@@ -93,7 +95,7 @@ const FONT_OPTIONS = [
             class="size-4 text-white"
             aria-hidden="true"
           />
-        </button>
+        </Button>
       </div>
       <p class="text-xs text-muted-foreground">
         主题色用于按钮、选中态等强调元素，即时生效。

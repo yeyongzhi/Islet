@@ -103,6 +103,6 @@ jobs:
           tag_name: ${{ steps.release.outputs.tag }}
           name: ${{ steps.release.outputs.tag }}
           body_path: release-notes.md
-          draft: true
+          draft: false
           prerelease: ${{ contains(steps.release.outputs.tag, '-') }}
           files: src-tauri/target/release/bundle/nsis/*-setup.exe

@@ -179,17 +179,7 @@ export const useGalleryStore = defineStore('gallery', () => {
   async function load() {
     if (loading) return loading
     if (store.loaded.value) return
-    loading = (async () => {
-      await store.load()
-      // 首次使用时从本机图片目录选取，空目录保留空状态。
-      try {
-        const raw = await invoke<string | null>('load_panel_data', { key: 'gallery' })
-        if (raw === null && store.data.value) {
-          store.data.value.paths = await invoke<string[]>('default_gallery_images')
-          store.persist()
-        }
-      } catch { /* 保留读取错误 */ }
-    })()
+    loading = store.load()
     try { await loading } finally { loading = undefined }
   }
   async function choose() {

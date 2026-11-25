@@ -1,9 +1,7 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { ArrowLeft, ArrowRight } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
-import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSettingsStore, PANEL_SIZES, type IslandEdge, type PanelIndicatorStyle } from '@/stores/settings'
@@ -20,12 +18,12 @@ const POSITION_OPTIONS: { value: IslandEdge; label: string }[] = [
 // —— 开机自启动（autostart 插件，注册表方式，无需持久化偏好） ——
 const autoStart = ref(false)
 const autoStartBusy = ref(false)
-const monitors = ref<string[]>([])
+const monitors = ref<Array<{ id: string; label: string }>>([])
 const monitorError = ref('')
 const hotkeyAvailable = ref<boolean | null>(null)
 
 onMounted(async () => {
-  try { monitors.value = await invoke<string[]>('list_island_monitors') } catch { monitorError.value = '无法读取显示器列表' }
+  try { monitors.value = await invoke<Array<{ id: string; label: string }>>('list_island_monitors') } catch { monitorError.value = '无法读取显示器列表' }
   try { hotkeyAvailable.value = await invoke<boolean>('restore_hotkey_available') } catch { hotkeyAvailable.value = false }
   try {
     autoStart.value = await invoke<boolean>('plugin:autostart|is_enabled')
@@ -56,11 +54,6 @@ const screen = ref({ width: 1280, height: 800 })
 const isSide = computed(() => settings.prefs.islandEdge === 'left' || settings.prefs.islandEdge === 'right')
 
 /** 偏移在停靠边上的百分比（中心点） */
-const offsetPct = computed(() => {
-  const along = isSide.value ? screen.value.height : screen.value.width
-  return Math.round((settings.prefs.islandOffset / along) * 100)
-})
-
 function applyOffsetPct(pct: number) {
   const clamped = Math.min(100, Math.max(0, Math.round(pct)))
   const along = isSide.value ? screen.value.height : screen.value.width
@@ -104,6 +97,7 @@ async function setAutoStart(enabled: boolean) {
           <SelectContent><SelectGroup><SelectItem value="hover">悬停展开</SelectItem><SelectItem value="click">点击展开</SelectItem></SelectGroup></SelectContent>
         </Select>
       </div>
+      <div class="flex items-center justify-between gap-3"><div><p class="text-sm">快捷切换面板</p><p class="text-xs text-muted-foreground">在面板顶部显示快捷选择入口</p></div><Switch :model-value="settings.prefs.quickPanelSwitch" aria-label="快捷切换面板" @update:model-value="v => settings.set('quickPanelSwitch', !!v)" /></div>
       <div class="flex items-center justify-between gap-3">
         <div><p class="text-sm">底部切换显示样式</p><p class="text-xs text-muted-foreground">选择面板导航显示为点位或文字</p></div>
         <Select :model-value="settings.prefs.panelIndicatorStyle" @update:model-value="(v) => settings.set('panelIndicatorStyle', v as PanelIndicatorStyle)">
@@ -148,9 +142,9 @@ async function setAutoStart(enabled: boolean) {
 
       <div class="flex items-center justify-between gap-3">
         <span class="text-sm">显示器</span>
-        <Select :model-value="monitors.includes(settings.prefs.monitorName) ? settings.prefs.monitorName : monitors[0]" :disabled="!monitors.length" @update:model-value="(v) => selectMonitor(String(v))">
+        <Select :model-value="monitors.some(monitor => monitor.id === settings.prefs.monitorName) ? settings.prefs.monitorName : monitors[0]?.id" :disabled="!monitors.length" @update:model-value="(v) => selectMonitor(String(v))">
           <SelectTrigger class="w-44" aria-label="显示器"><SelectValue placeholder="无法读取显示器" /></SelectTrigger>
-          <SelectContent><SelectGroup><SelectItem v-for="(monitor, index) in monitors" :key="monitor" :value="monitor">{{ `显示器 ${index + 1} · ${monitor}` }}</SelectItem></SelectGroup></SelectContent>
+          <SelectContent><SelectGroup><SelectItem v-for="monitor in monitors" :key="monitor.id" :value="monitor.id">{{ monitor.label }}</SelectItem></SelectGroup></SelectContent>
         </Select>
       </div>
       <p v-if="monitorError" class="text-xs text-destructive">{{ monitorError }}</p>
@@ -170,41 +164,9 @@ async function setAutoStart(enabled: boolean) {
         </Tabs>
       </div>
 
-      <!-- 沿边位置：滑条 + 左右微调 + 恢复居中 -->
       <div class="flex items-center gap-3">
-        <span class="w-20 shrink-0 text-sm text-muted-foreground">
-          {{ isSide ? '垂直位置' : '水平位置' }}
-        </span>
-        <Button
-          variant="outline"
-          size="icon"
-          class="size-8 shrink-0"
-          aria-label="向起点方向微调"
-          @click="applyOffsetPct(offsetPct - 3)"
-        >
-          <ArrowLeft class="size-4" aria-hidden="true" />
-        </Button>
-        <Slider
-          class="min-w-0 flex-1"
-          :model-value="[offsetPct]"
-          :min="0"
-          :max="100"
-          :step="1"
-          aria-label="沿停靠边的位置"
-          @update:model-value="(v) => applyOffsetPct((v as number[])[0] ?? offsetPct)"
-        />
-        <Button
-          variant="outline"
-          size="icon"
-          class="size-8 shrink-0"
-          aria-label="向终点方向微调"
-          @click="applyOffsetPct(offsetPct + 3)"
-        >
-          <ArrowRight class="size-4" aria-hidden="true" />
-        </Button>
-        <Button variant="outline" size="sm" class="h-8 shrink-0 text-xs" @click="applyOffsetPct(50)">
-          恢复居中
-        </Button>
+        <span class="w-20 shrink-0 text-sm text-muted-foreground">{{ isSide ? '垂直位置' : '水平位置' }}</span>
+        <Button v-for="position in [{ pct: 0, label: isSide ? '最上' : '最左' }, { pct: 50, label: '居中' }, { pct: 100, label: isSide ? '最下' : '最右' }]" :key="position.pct" variant="outline" size="sm" @click="applyOffsetPct(position.pct)">{{ position.label }}</Button>
       </div>
       <p class="text-xs text-muted-foreground">
         左右停靠时收起为竖向长条，展开面板朝屏幕内侧打开；也可以直接按住灵动岛拖动到目标边吸附。

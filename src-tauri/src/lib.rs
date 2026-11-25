@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
-    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, State,
+    AppHandle, Emitter, Manager, PhysicalPosition, State,
     WebviewWindow, WindowEvent,
 };
 
@@ -13,7 +13,7 @@ use tauri::{
 const PILL_WIDTH: f64 = 250.0;
 const PILL_HEIGHT: f64 = 40.0;
 /// 侧边停靠时的收起态（竖向长条）尺寸
-const DOCK_STRIP_WIDTH: f64 = 32.0;
+const DOCK_STRIP_WIDTH: f64 = 112.0;
 const DOCK_STRIP_HEIGHT: f64 = 220.0;
 /// 展开态（面板）尺寸，单位：逻辑像素
 const EXPANDED_WIDTH: f64 = 440.0;
@@ -299,6 +299,21 @@ fn launch_path(path: String) -> Result<(), String> {
     { let _ = path; Err("仅支持 Windows".into()) }
 }
 
+/// 从 Windows 可执行文件提取图标。无法识别的目标返回空值。
+#[tauri::command]
+async fn get_launch_icon(path: String) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use std::os::windows::process::CommandExt;
+        if path.starts_with("http:") || path.starts_with("https:") { return Ok(None); }
+        let path = if path.starts_with("shell:") { "explorer.exe".to_owned() } else if path.starts_with("ms-settings:") { format!("{}\\ImmersiveControlPanel\\SystemSettings.exe", std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_owned())) } else { path };
+        let script = r#"Add-Type -AssemblyName System.Drawing; $p = $env:ISLET_ICON_PATH; if (-not (Test-Path -LiteralPath $p)) { $c = Get-Command $p -ErrorAction SilentlyContinue; if ($c) { $p = $c.Source } }; if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { exit 0 }; $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($p); if ($icon) { $bitmap = $icon.ToBitmap(); $stream = [System.IO.MemoryStream]::new(); $bitmap.Save($stream, [System.Drawing.Imaging.ImageFormat]::Png); [Console]::Write([Convert]::ToBase64String($stream.ToArray())); $stream.Dispose(); $bitmap.Dispose(); $icon.Dispose() }"#;
+        let output = std::process::Command::new("powershell.exe").args(["-NoProfile", "-NonInteractive", "-Command", script]).env("ISLET_ICON_PATH", path).creation_flags(0x08000000).output().map_err(|e| e.to_string())?;
+        if !output.status.success() { return Ok(None); }
+        let encoded = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Ok(if encoded.is_empty() { None } else { Some(format!("data:image/png;base64,{encoded}")) })
+    }).await.map_err(|e| e.to_string())?
+}
+
 /// 使用系统文件选择器选择本机图片。
 #[tauri::command]
 async fn choose_gallery_images() -> Result<Vec<String>, String> {
@@ -420,9 +435,17 @@ fn apply_layout(
     let x = x.clamp(0.0, (sw - size.0).max(0.0));
     let y = y.clamp(0.0, (sh - size.1).max(0.0));
 
-    let _ = window.set_size(LogicalSize::new(size.0, size.1));
+    // 同一次原生调用完成位置和尺寸更新，避免透明窗口在两次更新之间闪现。
     let (origin_x, origin_y) = screen_origin(window);
-    let _ = window.set_position(PhysicalPosition::new(origin_x + (x * scale).round() as i32, origin_y + (y * scale).round() as i32));
+    let hwnd = window.hwnd().map_err(|e| e.to_string())?;
+    unsafe {
+        windows::Win32::UI::WindowsAndMessaging::SetWindowPos(
+            windows::Win32::Foundation::HWND(hwnd.0 as _), None,
+            origin_x + (x * scale).round() as i32, origin_y + (y * scale).round() as i32,
+            (size.0 * scale).round() as i32, (size.1 * scale).round() as i32,
+            windows::Win32::UI::WindowsAndMessaging::SWP_NOACTIVATE | windows::Win32::UI::WindowsAndMessaging::SWP_NOZORDER,
+        ).map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
@@ -542,10 +565,33 @@ fn get_screen_size(app: AppHandle) -> Result<serde_json::Value, String> {
     }
 }
 
+#[derive(Serialize)]
+struct MonitorChoice { id: String, label: String }
+
 #[tauri::command]
-fn list_island_monitors(app: AppHandle) -> Result<Vec<String>, String> {
+fn list_island_monitors(app: AppHandle) -> Result<Vec<MonitorChoice>, String> {
+    use windows::Win32::Graphics::Gdi::{EnumDisplayDevicesW, DISPLAY_DEVICEW};
     let window = app.get_webview_window("main").ok_or("找不到灵动岛窗口")?;
-    Ok(window.available_monitors().map_err(|e| e.to_string())?.iter().filter_map(|m| m.name().cloned()).collect())
+    let monitors = window.available_monitors().map_err(|e| e.to_string())?;
+    // EDID 包含显示器型号；按硬件实例匹配，避免用枚举顺序推测。
+    use std::os::windows::process::CommandExt;
+    let script = r#"$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[System.Text.Encoding]::UTF8; $m=@(Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorID | ForEach-Object { [PSCustomObject]@{ instance=$_.InstanceName; name=(-join ($_.UserFriendlyName | Where-Object { $_ -ne 0 } | ForEach-Object { [char]$_ })).Trim() } }); ConvertTo-Json -InputObject $m -Compress"#;
+    let edid: Vec<serde_json::Value> = std::process::Command::new("powershell.exe").args(["-NoProfile", "-NonInteractive", "-Command", script]).creation_flags(0x08000000).output().ok().filter(|o| o.status.success()).and_then(|o| serde_json::from_slice(&o.stdout).ok()).unwrap_or_default();
+    Ok(monitors.iter().enumerate().filter_map(|(index, monitor)| {
+        let id = monitor.name()?.clone();
+        let mut device = DISPLAY_DEVICEW { cb: std::mem::size_of::<DISPLAY_DEVICEW>() as u32, ..Default::default() };
+        let wide = windows::core::HSTRING::from(&id);
+        let found = unsafe { EnumDisplayDevicesW(&wide, 0, &mut device, 0).as_bool() };
+        let raw = if found { String::from_utf16_lossy(&device.DeviceString).trim_matches(char::from(0)).trim().to_owned() } else { String::new() };
+        let device_id = String::from_utf16_lossy(&device.DeviceID).trim_matches(char::from(0)).to_ascii_uppercase();
+        let friendly = edid.iter().find_map(|entry| {
+            let instance = entry.get("instance")?.as_str()?.to_ascii_uppercase();
+            let name = entry.get("name")?.as_str()?.trim();
+            if !device_id.is_empty() && !name.is_empty() && (instance.starts_with(&device_id) || device_id.starts_with(&instance)) { Some(name.to_owned()) } else { None }
+        }).unwrap_or(raw);
+        let label = if friendly.is_empty() { format!("显示器 {}", index + 1) } else { format!("显示器 {} · {}", index + 1, friendly) };
+        Some(MonitorChoice { id, label })
+    }).collect())
 }
 
 #[tauri::command]
@@ -1000,8 +1046,25 @@ fn volume_monitor(app: AppHandle) {
     }
 }
 
+/// 监听键盘锁定键的开关状态，仅在变化时发送事件。
+fn keyboard_monitor(app: AppHandle) {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VK_CAPITAL, VK_NUMLOCK};
+    let mut previous: Option<(bool, bool)> = None;
+    loop {
+        let state = unsafe { ((GetKeyState(VK_CAPITAL.0 as i32) & 1) != 0, (GetKeyState(VK_NUMLOCK.0 as i32) & 1) != 0) };
+        if let Some(old) = previous {
+            if old.0 != state.0 { let _ = app.emit("system://caps-lock", state.0); }
+            if old.1 != state.1 { let _ = app.emit("system://num-lock", state.1); }
+        }
+        previous = Some(state);
+        std::thread::sleep(std::time::Duration::from_millis(150));
+    }
+}
+
 /// 启动全部系统事件监听线程
 fn start_system_monitors(app: AppHandle) {
+    let keyboard_app = app.clone();
+    std::thread::spawn(move || keyboard_monitor(keyboard_app));
     let ime_app = app.clone();
     std::thread::spawn(move || ime_monitor(ime_app));
     let net_app = app.clone();
@@ -1065,6 +1128,7 @@ pub fn run() {
             load_panel_data,
             save_panel_data,
             launch_path,
+            get_launch_icon,
             choose_gallery_images,
             default_gallery_images,
             read_gallery_image,

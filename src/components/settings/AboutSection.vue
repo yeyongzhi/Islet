@@ -8,8 +8,9 @@ import { toast } from 'vue-sonner'
 
 const REPOSITORY = 'https://github.com/yeyongzhi/Islet'
 const VERSION_MANIFEST = 'https://raw.githubusercontent.com/yeyongzhi/Islet/main/latest-version.json'
-const CHANGELOG = `${REPOSITORY}/blob/main/CHANGELOG.md`
-const version = ref('0.1.0-beta2')
+const WEBSITE = 'https://yeyongzhi.github.io/Islet/'
+const CHANGELOG = `${WEBSITE}changelog`
+const version = ref('0.1.0-beta3')
 const checking = ref(false)
 const updateMessage = ref('')
 const updateUrl = ref('')
@@ -99,7 +100,7 @@ async function checkForUpdates() {
     <section class="flex items-center gap-3">
       <img src="/islet-icon.png" alt="" class="size-12 shrink-0 rounded-2xl object-cover" />
       <div class="min-w-0 flex-1">
-        <h2 class="text-lg font-semibold">Islet <span class="text-muted-foreground">灵岛</span></h2>
+        <div class="flex items-center gap-1"><h2 class="text-lg font-semibold">Islet <span class="text-muted-foreground">灵岛</span></h2><Button variant="ghost" size="icon" class="size-7" aria-label="打开 Islet 网站" @click="openExternal(WEBSITE)"><ExternalLink class="size-4" /></Button></div>
         <p class="text-xs text-muted-foreground">Windows 桌面灵动岛：日历、天气、专注与健康</p>
       </div>
       <Button variant="outline" size="icon" class="size-9 shrink-0" aria-label="前往 GitHub 项目仓库" title="GitHub 项目仓库" @click="openExternal(REPOSITORY)">

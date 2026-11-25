@@ -8,6 +8,7 @@ import {
   CloudSnow,
   CloudSun,
   Sun,
+  RefreshCw,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -52,6 +53,7 @@ function weatherIcon(code: number): Component {
   <!-- 天气面板：今日详情 + 未来几天预报（城市在设置窗口配置） -->
   <div class="flex h-full flex-col gap-2">
 
+    <div class="flex justify-end"><Button variant="ghost" size="icon" class="size-7" aria-label="刷新天气" :disabled="weather.status === 'loading'" @click="weather.load()"><RefreshCw class="size-4" /></Button></div>
     <!-- 加载中 -->
     <div v-if="weather.status === 'loading'" class="flex flex-1 flex-col gap-3">
       <Skeleton class="h-16 w-full" />

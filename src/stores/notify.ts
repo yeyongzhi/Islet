@@ -11,6 +11,8 @@ import { isWithinHours } from '@/lib/schedule'
 
 export type NotifyKind =
   | 'clipboard'
+  | 'capsLock'
+  | 'numLock'
   | 'ime'
   | 'network'
   | 'battery'
@@ -35,6 +37,8 @@ export interface NotifyItem {
 /** 通知类型 → 偏好开关 key */
 const PREF_KEYS: Record<NotifyKind, string> = {
   clipboard: 'notifyClipboard',
+  capsLock: 'notifyCapsLock',
+  numLock: 'notifyNumLock',
   ime: 'notifyIme',
   network: 'notifyNetwork',
   battery: 'notifyBattery',
@@ -257,6 +261,8 @@ export const useNotifyStore = defineStore('notify', () => {
         enqueue({ kind: 'clipboard', text: `已复制：${preview(event.payload)}` })
       }),
     )
+    unlisteners.push(await listen<boolean>('system://caps-lock', event => enqueue({ kind: 'capsLock', text: event.payload ? '大写锁定已开启' : '大写锁定已关闭' })))
+    unlisteners.push(await listen<boolean>('system://num-lock', event => enqueue({ kind: 'numLock', text: event.payload ? '数字键盘已开启' : '数字键盘已关闭' })))
     // 输入法中英文切换
     unlisteners.push(
       await listen<boolean>('system://ime', (event) => {
@@ -310,19 +316,12 @@ export const useNotifyStore = defineStore('notify', () => {
       }),
     )
 
-    // 音乐切歌（音乐状态常驻轮询，标题变化即通知）
-    let lastTitle = ''
-    watch(
-      () => music.state?.title,
-      (title) => {
-        if (!title || title === lastTitle) return
-        const wasEmpty = lastTitle === ''
-        lastTitle = title
-        if (!wasEmpty && music.state?.playing) {
-          enqueue({ kind: 'music', text: `正在播放：${preview(title, 20)}` })
-        }
-      },
-    )
+    // 跳过首次读取，仅报告实际曲目和播放状态变化。
+    watch(() => music.state && { title: music.state.title, playing: music.state.playing }, (state, previous) => {
+      if (!state || !previous) return
+      if (state.title && state.title !== previous.title) enqueue({ kind: 'music', text: `切换音乐：${preview(state.title, 20)}` })
+      else if (state.playing !== previous.playing) enqueue({ kind: 'music', text: state.playing ? `继续播放：${preview(state.title, 20)}` : `已暂停：${preview(state.title, 20)}` })
+    })
 
     // 番茄钟阶段切换
     watch(
