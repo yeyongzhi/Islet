@@ -7,9 +7,9 @@
 
 ## 下载安装包
 
-当前 Beta 通过 GitHub Release 提供 NSIS 安装程序（`Islet_0.1.0-beta3_x64-setup.exe`）：
+Beta 通过 GitHub Release 提供 Windows x64 NSIS 安装程序：
 
-- [下载 v0.1.0-beta3（Windows x64）](https://github.com/yeyongzhi/Islet/releases/tag/v0.1.0-beta3)
+- [查看 Beta 发布及下载安装包](https://github.com/yeyongzhi/Islet/releases)
 
 ::: tip 当前状态
 这是 Beta 预发布版本，尚非正式稳定版。遇到问题请通过 GitHub Issues 反馈。

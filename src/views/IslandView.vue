@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
-import { getCurrentWindow } from '@tauri-apps/api/window'
+import { cursorPosition, getCurrentWindow } from '@tauri-apps/api/window'
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { listen } from '@tauri-apps/api/event'
 import { PhysicalPosition } from '@tauri-apps/api/dpi'
@@ -64,10 +64,11 @@ const panelSize = computed(() => PANEL_SIZES[settings.prefs.panelSize] ?? PANEL_
 /** 壳层视觉状态：驱动胶囊 ↔ 面板的形变动画 */
 const open = ref(false)
 const renderPanel = ref(false)
+const MORPH_DURATION_MS = 460
 let unmountPanelTimer: number | undefined
 watch(open, (expanded) => {
   window.clearTimeout(unmountPanelTimer)
-  if (!expanded) unmountPanelTimer = window.setTimeout(() => { renderPanel.value = false }, 320)
+  if (!expanded) unmountPanelTimer = window.setTimeout(() => { renderPanel.value = false }, MORPH_DURATION_MS + 40)
 })
 const pinned = ref(false)
 const shaking = ref(false)
@@ -79,10 +80,10 @@ watch(() => notify.current ?? notify.overlay, (item) => {
   requestAnimationFrame(() => { shaking.value = true; shakeTimer = window.setTimeout(() => { shaking.value = false }, 700) })
 })
 watch(
-  [open, () => settings.prefs.fontSize],
-  ([expanded, fontSize]) => {
+  [open, renderPanel, () => settings.prefs.fontSize],
+  ([expanded, panelVisible, fontSize]) => {
     // 展开时按全局字号缩放 rem 字体；收起胶囊继续使用紧凑字号。
-    document.documentElement.style.fontSize = expanded ? `${(16 * fontSize) / 14}px` : '13px'
+    document.documentElement.style.fontSize = expanded || panelVisible ? `${(16 * fontSize) / 14}px` : '13px'
   },
   { immediate: true },
 )
@@ -97,30 +98,41 @@ let manualFullscreenOverride = false
 let unlistenManualShow: UnlistenFn | undefined
 let unlistenManualHide: UnlistenFn | undefined
 let manuallyHidden = false
+const automaticIndicator = ref(false)
 
 async function updateFullscreen() {
   if (checkingFullscreen) return
   if (manuallyHidden) return
   checkingFullscreen = true
   try {
-    const fullscreen = (settings.prefs.hideOnFullscreen || settings.prefs.notifyQuietFullscreen) && await invoke<boolean>('is_foreground_fullscreen')
+    const [maximized, exclusive] = await invoke<[boolean, boolean]>('get_window_display_context')
+    const fullscreen = settings.prefs.notifyQuietFullscreen && await invoke<boolean>('is_foreground_fullscreen')
     notify.fullscreen = fullscreen
-    if (!fullscreen) manualFullscreenOverride = false
-    if (fullscreen && settings.prefs.hideOnFullscreen && !hiddenByFullscreen && !manualFullscreenOverride) {
+    if (!maximized && !exclusive) manualFullscreenOverride = false
+    const mode = manualFullscreenOverride ? 'normal' : exclusive ? settings.prefs.fullscreenDisplayMode : maximized ? settings.prefs.maximizedDisplayMode : 'normal'
+    const shouldIndicate = mode === 'indicator'
+    if (shouldIndicate && !automaticIndicator.value && open.value) {
+      pinned.value = false
+      open.value = false
+      window.clearTimeout(collapseTimer)
+      collapseTimer = window.setTimeout(() => island.setExpanded(false), MORPH_DURATION_MS + 40)
+    }
+    automaticIndicator.value = shouldIndicate
+    if (mode === 'hide' && !hiddenByFullscreen) {
       window.clearTimeout(hoverTimer)
       pinned.value = false
       open.value = false
       island.setExpanded(false)
       await invoke('set_island_visible', { visible: false })
       hiddenByFullscreen = true
-    } else if ((!fullscreen || !settings.prefs.hideOnFullscreen) && hiddenByFullscreen) {
+    } else if (mode !== 'hide' && hiddenByFullscreen) {
       await invoke('set_island_visible', { visible: true })
       hiddenByFullscreen = false
     }
   } finally { checkingFullscreen = false }
 }
+watch(() => [settings.prefs.maximizedDisplayMode, settings.prefs.fullscreenDisplayMode, settings.prefs.notifyQuietFullscreen], () => { void updateFullscreen().catch(() => {}) })
 
-const MORPH_DURATION_MS = 460
 /** 鼠标移出后的宽限延迟：短暂离开（如移动到边缘、划过间隙）不收起 */
 
 /** 收起态尺寸（宽高与 Rust 常量一致；圆角跟随全局圆角偏好） */
@@ -135,24 +147,50 @@ function compactDims(): { w: number; h: number; r: number } {
 
 const shellStyle = computed(() => {
   const dims = compactDims()
+  const edgeRadius = (radius: string) => {
+    if (settings.prefs.compactStyle !== 'notch') return radius
+    switch (settings.prefs.islandEdge) {
+      case 'top': return `0 0 ${radius} ${radius}`
+      case 'bottom': return `${radius} ${radius} 0 0`
+      case 'left': return `0 ${radius} ${radius} 0`
+      default: return `${radius} 0 0 ${radius}`
+    }
+  }
   if (!open.value) {
     // 侧边竖条上出现通知时，临时变为横向小气泡
     if (notify.current && (settings.prefs.islandEdge === 'left' || settings.prefs.islandEdge === 'right')) {
       return { width: '220px', height: '64px', borderRadius: '20px' }
     }
-    return { width: `${dims.w}px`, height: `${dims.h}px`, borderRadius: `${dims.r}px` }
+    return { width: `${dims.w}px`, height: `${dims.h}px`, borderRadius: edgeRadius(`${dims.r}px`) }
   }
   const size = panelSize.value
   return {
     width: `${size.w}px`,
     height: `${size.h}px`,
     // 展开面板圆角同样跟随全局圆角（档位内微调，保持胶囊到面板的形变观感）
-    borderRadius: `${Math.min(28, Math.max(2, settings.prefs.borderRadius + 4))}px`,
+    borderRadius: edgeRadius(`${Math.min(28, Math.max(2, settings.prefs.borderRadius + 4))}px`),
   }
 })
 
 /** 面板内容整体缩放（zoom 同时缩放布局与字号，适配窗口尺寸档位） */
 const panelLayerStyle = computed(() => ({ zoom: panelSize.value.zoom }))
+
+// 内容保持自身尺寸，仅由外壳裁剪，避免形变时文字和控件逐帧重排。
+function layerPosition(w: number, h: number) {
+  const edge = settings.prefs.islandEdge
+  return {
+    width: `${w}px`, height: `${h}px`,
+    left: edge === 'left' ? '0' : edge === 'right' ? 'auto' : `calc(50% - ${w / 2}px)`,
+    right: edge === 'right' ? '0' : 'auto',
+    top: edge === 'bottom' ? 'auto' : edge === 'left' || edge === 'right' ? `calc(50% - ${h / 2}px)` : '0',
+    bottom: edge === 'bottom' ? '0' : 'auto',
+  }
+}
+const pillLayerPosition = computed(() => {
+  const dims = compactDims()
+  return layerPosition(dims.w, dims.h)
+})
+const panelLayerPosition = computed(() => layerPosition(panelSize.value.w, panelSize.value.h))
 
 /** 壳层锚点：展开时以胶囊所在位置为原点向屏幕内侧生长 */
 const anchorClass = computed(() => {
@@ -170,6 +208,8 @@ const anchorClass = computed(() => {
 
 let opening = false
 let openRequest = 0
+let pointerInside = false
+let leftWhileOpening = false
 async function openIsland() {
   // 宽限期内重新移入：取消收起流程
   window.clearTimeout(collapseTimer)
@@ -178,22 +218,37 @@ async function openIsland() {
   notify.interruptForPanel()
   if (open.value || opening) return
   opening = true
+  leftWhileOpening = false
   const request = ++openRequest
   // 先完成原生窗口调整并提交一帧，再启动壳层形变，避免窗口大小与内容不同步。
   await island.setExpanded(true)
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+  // 调整原生窗口时 WebView 可能产生临时的 mouseleave，按实际屏幕坐标确认。
+  if (leftWhileOpening && settings.prefs.expandMode === 'hover') {
+    try {
+      const win = getCurrentWindow()
+      const [cursor, position, size] = await Promise.all([cursorPosition(), win.outerPosition(), win.outerSize()])
+      pointerInside = cursor.x >= position.x && cursor.x < position.x + size.width
+        && cursor.y >= position.y && cursor.y < position.y + size.height
+      if (!pointerInside) openRequest++
+    } catch {
+      if (!pointerInside) openRequest++
+    }
+  }
   opening = false
-  if (request !== openRequest) { void island.setExpanded(false); return }
+  if (request !== openRequest) {
+    await island.setExpanded(false)
+    if (pointerInside && settings.prefs.expandMode === 'hover') void openIsland()
+    return
+  }
   window.clearTimeout(unmountPanelTimer)
   renderPanel.value = true
   open.value = true
-  // WebView2 需要窗口持有焦点才会接收滚轮消息；悬停展开时聚焦本窗口
-  getCurrentWindow().setFocus().catch(() => {
-    // 非 Tauri 环境忽略
-  })
+  getCurrentWindow().setFocus().catch(() => {})
 }
 
 function handleEnter() {
+  pointerInside = true
   window.clearTimeout(collapseTimer)
   window.clearTimeout(leaveTimer)
   if (settings.prefs.expandMode !== 'hover' || open.value || notify.current?.tone === 'warn') return
@@ -202,8 +257,9 @@ function handleEnter() {
 }
 
 function handleLeave() {
+  pointerInside = false
   window.clearTimeout(hoverTimer)
-  if (opening) openRequest++
+  if (opening) leftWhileOpening = true
   if (!open.value || pinned.value) return
   collapseSoon()
 }
@@ -224,7 +280,7 @@ function collapseSoon() {
     if (!open.value || pinned.value) return
     // 菜单或对话框可能在离开事件之后才挂载；保持窗口展开直到浮层关闭。
     if (document.querySelector('[role="menu"], [role="listbox"], [role="dialog"], [role="alertdialog"]')) {
-      collapseSoon()
+      leaveTimer = window.setTimeout(collapseSoon, 100)
       return
     }
     open.value = false
@@ -248,12 +304,7 @@ let unlistenDragDrop: UnlistenFn | undefined
 
 /** 拖入时展开到中转站：收起态也能接收文件拖放，进入即展开便于看见高亮落区 */
 function expandForDrag() {
-  window.clearTimeout(collapseTimer)
-  window.clearTimeout(leaveTimer)
-  if (!open.value) {
-    island.setExpanded(true)
-    open.value = true
-  }
+  void openIsland()
 }
 
 function handleDragDropEvent(event: { payload: { type: string; paths?: string[] } }) {
@@ -280,7 +331,7 @@ function layoutParams(edge: string, expanded: boolean, offset: number) {
     offset,
     panelWidth: panelSize.value.w,
     panelHeight: panelSize.value.h,
-    edgeGap: settings.prefs.edgeAttached ? 0 : 8,
+    edgeGap: settings.prefs.compactStyle === 'notch' || settings.prefs.edgeAttached ? 0 : 8,
   }
 }
 
@@ -352,6 +403,7 @@ async function endDrag() {
   try {
     const res = await invoke<{ edge: string; offset: number; monitor: string | null }>('finish_drag', {
       currentEdge: settings.prefs.islandEdge,
+      edgeGap: settings.prefs.compactStyle === 'notch' || settings.prefs.edgeAttached ? 0 : 8,
     })
     settings.updateIslandLayout(res.edge as IslandEdge, res.offset)
     if (res.monitor && res.monitor !== settings.prefs.monitorName) settings.set('monitorName', res.monitor)
@@ -372,7 +424,7 @@ function resetDrag() {
 
 // 停靠边或偏移变化（设置里切换位置、拖动吸附）时按当前状态重新应用布局
 watch(
-  () => [settings.prefs.islandEdge, settings.prefs.islandOffset, settings.prefs.edgeAttached] as const,
+  () => [settings.prefs.islandEdge, settings.prefs.islandOffset, settings.prefs.edgeAttached, settings.prefs.compactStyle] as const,
   () => {
     invoke('set_island_state', layoutParams(
       settings.prefs.islandEdge,
@@ -397,6 +449,7 @@ watch(
 )
 
 onMounted(async () => {
+  if (import.meta.env.PROD) void invoke('check_and_install_update').catch(() => {})
   document.addEventListener('mouseout', handleWindowExit)
   // 岛悬浮窗：页面背景透明（窗口本身透明）
   document.body.style.background = 'transparent'
@@ -444,18 +497,19 @@ onBeforeUnmount(() => {
   <main
     class="fixed inset-0 flex"
     :class="anchorClass"
-    @mouseenter="handleEnter"
-    @mouseleave="handleLeave"
   >
     <div
       class="island-shell"
-      :class="{ 'island-shell--open': open, 'island-shell--shake': shaking }"
+      :class="{ 'island-shell--open': open, 'island-shell--shake': shaking, 'island-shell--indicator': !open && !notify.current && (automaticIndicator || settings.prefs.compactStyle === 'indicator') }"
       :style="{ ...shellStyle, '--morph-easing': settings.prefs.animationCurve === 'smooth' ? 'cubic-bezier(0.22, 1, 0.36, 1)' : settings.prefs.animationCurve }"
+      @mouseenter="handleEnter"
+      @mouseleave="handleLeave"
     >
       <!-- 收起层：胶囊内容（通知展示时暂时隐藏） -->
-      <div v-show="!(notify.current && !open)" class="island-pill-layer">
+      <div v-show="!(notify.current && !open)" class="island-pill-layer" :style="pillLayerPosition">
         <Button variant="ghost" class="h-full w-full rounded-[inherit] p-0 hover:bg-transparent" aria-label="展开灵动岛" @pointerdown="beginDrag" @click="!dragMoved && openIsland()">
-          <IslandPill />
+          <span v-if="(automaticIndicator || settings.prefs.compactStyle === 'indicator') && !open && !notify.current" class="block rounded-full bg-foreground/60" :class="settings.prefs.islandEdge === 'left' || settings.prefs.islandEdge === 'right' ? 'h-16 w-1' : 'h-1 w-16'" aria-hidden="true" />
+          <IslandPill v-else />
         </Button>
       </div>
       <!-- 通知层：保留左侧机器人表情，显示通知图标和文案 -->
@@ -490,8 +544,8 @@ onBeforeUnmount(() => {
           </div>
         </div>
       <!-- 展开层：面板内容 -->
-      <div class="island-panel-layer" :style="panelLayerStyle">
-        <IslandPanel :pinned="pinned" :open="open" :render-content="renderPanel" :notification="notify.overlay" :notification-icon="notify.overlay ? NOTIFY_ICONS[notify.overlay.kind] : undefined" @drag="beginDrag" @toggle-pin="togglePin" />
+      <div class="island-panel-layer" :style="panelLayerPosition">
+        <IslandPanel :style="panelLayerStyle" :pinned="pinned" :open="open" :render-content="renderPanel" :notification="notify.overlay" :notification-icon="notify.overlay ? NOTIFY_ICONS[notify.overlay.kind] : undefined" @drag="beginDrag" @toggle-pin="togglePin" />
       </div>
     </div>
   </main>
@@ -501,7 +555,7 @@ onBeforeUnmount(() => {
 /* 灵动岛壳层：从胶囊形变为面板；配色跟随主题令牌（亮/暗模式即时生效） */
 .island-shell {
   position: relative;
-  background: color-mix(in srgb, var(--background) 95%, transparent);
+  background: color-mix(in srgb, var(--background) var(--island-opacity, 95%), transparent);
   /* 亮暗模式各自的内描边+内阴影（外投影会被透明窗口裁剪） */
   box-shadow: var(--island-shadow);
   overflow: hidden;
@@ -513,6 +567,7 @@ onBeforeUnmount(() => {
 }
 
 .island-shell--shake { animation: reminder-shake 700ms ease-in-out; }
+.island-shell--indicator { background: transparent; box-shadow: none; }
 @keyframes reminder-shake {
   0%, 100% { transform: translateX(0); }
   20%, 60% { transform: translateX(-5px); }
@@ -522,38 +577,32 @@ onBeforeUnmount(() => {
 
 .island-pill-layer {
   position: absolute;
-  inset: 0;
   color: var(--foreground);
   opacity: 1;
   transform: scale(1);
-  transition:
-    opacity 220ms ease,
-    transform 220ms ease;
+  transition: opacity 260ms ease, transform 260ms ease;
 }
 
 .island-shell--open .island-pill-layer {
   opacity: 0;
   transform: scale(0.92);
+  transition-delay: 100ms;
   pointer-events: none;
 }
 
 .island-panel-layer {
   position: absolute;
-  inset: 0;
   opacity: 0;
   pointer-events: none;
   transform: scale(0.96);
   transform-origin: top center;
-  transition:
-    opacity 300ms ease,
-    transform 300ms ease;
+  transition: opacity 300ms ease, transform 300ms ease;
 }
 
 .island-shell--open .island-panel-layer {
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
-  transition-delay: 160ms;
 }
 
 /* 通知层：与胶囊同层级平铺表情、图标和文案 */

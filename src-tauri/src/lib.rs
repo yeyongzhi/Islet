@@ -108,6 +108,7 @@ fn inspect_transfer_paths(paths: Vec<String>) -> Vec<serde_json::Value> {
 }
 
 struct AppState {
+    updating: AtomicBool,
     clipboard_started: AtomicBool,
     clipboard_enabled: AtomicBool,
     restore_hotkey: AtomicBool,
@@ -115,6 +116,94 @@ struct AppState {
     system: std::sync::Mutex<sysinfo::System>,
     /// 网速计算：上次快照（Networks 实例、时间戳、累计字节数）
     net: std::sync::Mutex<(sysinfo::Networks, std::time::Instant, u64, u64)>,
+}
+
+// 项目沿用 beta1、beta2 命名；比较时按数字排序，避免 beta10 排在 beta3 之前。
+fn update_version_order(version: &semver::Version) -> semver::Version {
+    let mut normalized = version.clone();
+    let parts: Vec<String> = version.pre.as_str().split('.').map(|part| {
+        for prefix in ["alpha", "beta", "rc"] {
+            if let Some(number) = part.strip_prefix(prefix) {
+                if !number.is_empty() && number.bytes().all(|b| b.is_ascii_digit()) {
+                    return format!("{prefix}.{}", number.trim_start_matches('0').parse::<u64>().unwrap_or(0));
+                }
+            }
+        }
+        part.to_string()
+    }).collect();
+    if let Ok(pre) = semver::Prerelease::new(&parts.join(".")) { normalized.pre = pre; }
+    normalized
+}
+
+/// 检查官方版本并下载校验安装包；启动安装程序后退出，安装结束由 NSIS 重启应用。
+#[tauri::command]
+async fn check_and_install_update(app: AppHandle, state: State<'_, AppState>) -> Result<String, String> {
+    if !state.updating.load(Ordering::SeqCst) {
+        let _ = app.emit("island://update-progress", serde_json::json!({"stage":"check"}));
+    }
+    let result = run_update(&app, &state).await;
+    // 并发请求不得覆盖正在进行的下载状态。
+    if !state.updating.load(Ordering::SeqCst) {
+        match &result {
+            Ok(message) => { let _ = app.emit("island://update-progress", serde_json::json!({"stage":"done", "message":message})); }
+            Err(message) => { let _ = app.emit("island://update-progress", serde_json::json!({"stage":"error", "message":message})); }
+        }
+    }
+    result
+}
+
+async fn run_update(app: &AppHandle, state: &State<'_, AppState>) -> Result<String, String> {
+    use sha2::{Digest, Sha256};
+    use std::io::Write;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    if cfg!(debug_assertions) { return Err("开发预览不执行自动安装，请使用正式安装版".into()); }
+    if state.updating.swap(true, Ordering::SeqCst) { return Err("更新检查或下载正在进行中".into()); }
+    struct UpdateGuard<'a>(&'a AtomicBool);
+    impl Drop for UpdateGuard<'_> { fn drop(&mut self) { self.0.store(false, Ordering::SeqCst); } }
+    let _guard = UpdateGuard(&state.updating);
+    let client = reqwest::Client::builder().user_agent("Islet-updater").timeout(std::time::Duration::from_secs(180)).build().map_err(|e| e.to_string())?;
+    let manifest: serde_json::Value = client.get("https://raw.githubusercontent.com/yeyongzhi/Islet/main/latest-version.json").send().await.map_err(|e| format!("无法检查更新：{e}"))?.error_for_status().map_err(|e| e.to_string())?.json().await.map_err(|e| e.to_string())?;
+    let latest_text = manifest["version"].as_str().ok_or("版本清单缺少版本号")?;
+    let latest = semver::Version::parse(latest_text.trim_start_matches('v')).map_err(|_| "版本清单中的版本号无效")?;
+    let current = semver::Version::parse(env!("CARGO_PKG_VERSION")).map_err(|_| "当前版本号无效")?;
+    if update_version_order(&latest) <= update_version_order(&current) { return Ok("当前已是最新版本".into()); }
+    let version = latest.to_string();
+    let tag = format!("v{version}");
+    let arch = if cfg!(target_arch = "x86_64") { "x64" } else if cfg!(target_arch = "aarch64") { "arm64" } else { return Err("当前架构不支持自动更新".into()); };
+    let filename = format!("Islet_{version}_{arch}-setup.exe");
+    let url = format!("https://github.com/yeyongzhi/Islet/releases/download/{tag}/{filename}");
+    let checksum_url = format!("{url}.sha256");
+    let checksum = client.get(checksum_url).send().await.map_err(|e| format!("无法读取安装包校验值：{e}"))?.error_for_status().map_err(|_| "该版本未提供安装包校验文件，暂不能自动安装")?.text().await.map_err(|e| e.to_string())?;
+    let digest = checksum.split_whitespace().next().filter(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit())).ok_or("安装包校验值无效")?.to_ascii_lowercase();
+    let mut response = client.get(url).send().await.map_err(|e| format!("下载安装包失败：{e}"))?.error_for_status().map_err(|e| e.to_string())?;
+    let size = response.content_length().unwrap_or(0);
+    if size > 200 * 1024 * 1024 { return Err("安装包大小无效".into()); }
+    let _ = app.emit("island://update-progress", serde_json::json!({"stage":"download", "version":version, "downloaded":0, "total":size}));
+    let nonce = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|e| e.to_string())?.as_nanos();
+    let directory = std::env::temp_dir().join(format!("islet-update-{}-{nonce}", std::process::id()));
+    fs::create_dir(&directory).map_err(|e| format!("无法创建更新目录：{e}"))?;
+    let path = directory.join(&filename);
+    let download_result: Result<(), String> = async {
+        let mut file = fs::OpenOptions::new().write(true).create_new(true).open(&path).map_err(|e| e.to_string())?;
+        let mut hasher = Sha256::new();
+        let mut downloaded = 0u64;
+        while let Some(chunk) = response.chunk().await.map_err(|e| format!("下载中断：{e}"))? {
+            downloaded = downloaded.checked_add(chunk.len() as u64).ok_or("安装包大小无效")?;
+            if downloaded > 200 * 1024 * 1024 || (size > 0 && downloaded > size) { return Err("安装包大小无效".into()); }
+            file.write_all(&chunk).map_err(|e| format!("写入安装包失败：{e}"))?;
+            hasher.update(&chunk);
+            let _ = app.emit("island://update-progress", serde_json::json!({"stage":"download", "version":version, "downloaded":downloaded, "total":size}));
+        }
+        file.flush().map_err(|e| e.to_string())?;
+        if downloaded == 0 || (size > 0 && downloaded != size) || format!("{:x}", hasher.finalize()) != digest { return Err("安装包校验失败，请重试".into()); }
+        Ok(())
+    }.await;
+    if let Err(error) = download_result { let _ = fs::remove_file(&path); let _ = fs::remove_dir(&directory); return Err(error); }
+    let _ = app.emit("island://update-progress", serde_json::json!({"stage":"install", "version":version}));
+    std::process::Command::new(&path).args(["/P", "/UPDATE", "/R"]).spawn().map_err(|e| format!("无法启动安装程序：{e}"))?;
+    app.exit(0);
+    Ok(format!("正在安装 v{version}"))
 }
 
 #[derive(Serialize)]
@@ -403,7 +492,7 @@ fn clamp_offset(edge: &str, offset: f64, screen: (f64, f64), pill: (f64, f64)) -
 fn apply_layout(
     window: &WebviewWindow,
     edge: &str,
-    expanded: bool,
+    _expanded: bool,
     offset: f64,
     panel: Option<(f64, f64)>,
     gap: f64,
@@ -417,11 +506,8 @@ fn apply_layout(
     } else {
         (DOCK_STRIP_WIDTH, DOCK_STRIP_HEIGHT)
     };
-    let size = if expanded {
-        panel.unwrap_or((EXPANDED_WIDTH, EXPANDED_HEIGHT))
-    } else {
-        compact
-    };
+    // 临时诊断：保持原生窗口尺寸不变，确认 WebView2 缩放是否造成闪烁。
+    let size = panel.unwrap_or((EXPANDED_WIDTH, EXPANDED_HEIGHT));
     let center = clamp_offset(edge, offset, screen, compact);
     let m = gap;
 
@@ -449,6 +535,37 @@ fn apply_layout(
     Ok(())
 }
 
+/// 枚举 Windows 已安装的字体族（包含用户级安装的字体）。
+#[tauri::command]
+fn list_system_fonts() -> Result<Vec<String>, String> {
+    use windows::Win32::Foundation::LPARAM;
+    use windows::Win32::Graphics::Gdi::{DEFAULT_CHARSET, EnumFontFamiliesExW, GetDC, LOGFONTW, ReleaseDC, TEXTMETRICW};
+
+    unsafe extern "system" fn collect(font: *const LOGFONTW, _: *const TEXTMETRICW, _: u32, data: LPARAM) -> i32 {
+        if font.is_null() { return 1; }
+        let face = unsafe { &(*font).lfFaceName };
+        let end = face.iter().position(|&c| c == 0).unwrap_or(face.len());
+        let name = String::from_utf16_lossy(&face[..end]);
+        if !name.is_empty() && !name.starts_with('@') {
+            unsafe { &mut *(data.0 as *mut Vec<String>) }.push(name);
+        }
+        1
+    }
+
+    let mut fonts = Vec::<String>::new();
+    let mut filter = LOGFONTW::default();
+    filter.lfCharSet = DEFAULT_CHARSET;
+    unsafe {
+        let dc = GetDC(None);
+        if dc.0.is_null() { return Err("无法读取系统字体".into()); }
+        EnumFontFamiliesExW(dc, &filter, Some(collect), LPARAM(&mut fonts as *mut _ as isize), 0);
+        ReleaseDC(None, dc);
+    }
+    fonts.sort_unstable_by_key(|name| name.to_lowercase());
+    fonts.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
+    Ok(fonts)
+}
+
 /// 设置灵动岛布局（展开/收起 + 停靠边 + 沿边偏移 + 可选面板尺寸 + 边缘间距）
 #[tauri::command]
 fn set_island_state(
@@ -472,7 +589,7 @@ fn set_island_state(
 
 /// 拖动结束后的吸附计算：返回 {edge, offset}，并立即应用收起态布局
 #[tauri::command]
-fn finish_drag(window: WebviewWindow, current_edge: String) -> Result<serde_json::Value, String> {
+fn finish_drag(window: WebviewWindow, current_edge: String, edge_gap: Option<f64>) -> Result<serde_json::Value, String> {
     let Some((sw, sh, scale)) = screen_metrics(&window) else {
         return Err("无法获取屏幕信息".into());
     };
@@ -527,9 +644,9 @@ fn finish_drag(window: WebviewWindow, current_edge: String) -> Result<serde_json
         .ok()
         .flatten()
         .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
-        .map(|v| v["edgeAttached"].as_bool().unwrap_or(true))
-        .unwrap_or(true);
-    let gap = if attached { 0.0 } else { EDGE_MARGIN };
+        .map(|v| v["compactStyle"].as_str() == Some("notch") || v["edgeAttached"].as_bool().unwrap_or(false))
+        .unwrap_or(false);
+    let gap = edge_gap.unwrap_or(if attached { 0.0 } else { EDGE_MARGIN });
     apply_layout(&window, &edge, false, offset, None, gap)?;
     log::info!(
         "[drag] finish_drag: edge={edge} offset={offset} pos=({px:.0},{py:.0}) size=({pw:.0},{ph:.0}) dists=(t:{d_top:.0},b:{d_bottom:.0},l:{d_left:.0},r:{d_right:.0})"
@@ -680,6 +797,40 @@ fn is_foreground_fullscreen(app: AppHandle) -> bool {
     rect.left <= p.x && rect.top <= p.y && rect.right >= p.x + size.width as i32 && rect.bottom >= p.y + size.height as i32
 }
 
+#[tauri::command]
+fn get_window_display_context(app: AppHandle) -> (bool, bool) {
+    use windows::core::BOOL;
+    use windows::Win32::Foundation::{HWND, LPARAM, RECT};
+    use windows::Win32::UI::Shell::{QUNS_RUNNING_D3D_FULL_SCREEN, SHQueryUserNotificationState};
+    use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowRect, GetWindowThreadProcessId, IsWindowVisible, IsZoomed};
+
+    struct Search { monitor: RECT, found: bool, own_pid: u32 }
+    unsafe extern "system" fn visit(hwnd: HWND, data: LPARAM) -> BOOL {
+        let search = unsafe { &mut *(data.0 as *mut Search) };
+        if !unsafe { IsWindowVisible(hwnd).as_bool() && IsZoomed(hwnd).as_bool() } { return BOOL(1); }
+        let mut pid = 0;
+        unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)); }
+        if pid == search.own_pid { return BOOL(1); }
+        let mut rect = RECT::default();
+        if unsafe { GetWindowRect(hwnd, &mut rect) }.is_ok()
+            && rect.left < search.monitor.right && rect.right > search.monitor.left
+            && rect.top < search.monitor.bottom && rect.bottom > search.monitor.top {
+            search.found = true;
+            return BOOL(0);
+        }
+        BOOL(1)
+    }
+
+    let exclusive = unsafe { SHQueryUserNotificationState() }.is_ok_and(|state| state == QUNS_RUNNING_D3D_FULL_SCREEN);
+    let Some(window) = app.get_webview_window("main") else { return (false, exclusive) };
+    let Some(monitor) = window.current_monitor().ok().flatten().or_else(|| window.primary_monitor().ok().flatten()) else { return (false, exclusive) };
+    let p = monitor.position();
+    let size = monitor.size();
+    let mut search = Search { monitor: RECT { left: p.x, top: p.y, right: p.x + size.width as i32, bottom: p.y + size.height as i32 }, found: false, own_pid: std::process::id() };
+    let _ = unsafe { EnumWindows(Some(visit), LPARAM(&mut search as *mut _ as isize)) };
+    (search.found, exclusive)
+}
+
 /// 发起系统级文件拖拽：从面板把暂存文件拖出到资源管理器等目标应用
 /// 阻塞到拖拽结束（模态循环），因此放在异步命令的工作线程 + 主线程调度中执行
 #[tauri::command]
@@ -724,6 +875,7 @@ struct MediaStateOut {
     can_pause: bool,
     can_next: bool,
     can_prev: bool,
+    can_seek: bool,
 }
 
 /// 读取当前系统媒体会话状态；无播放会话时返回 None
@@ -761,7 +913,27 @@ async fn get_media_state() -> Result<Option<MediaStateOut>, String> {
 
     Ok(Some(MediaStateOut { title, artist, position_secs, duration_secs, playing, player,
         can_play: controls.IsPlayEnabled().unwrap_or(false), can_pause: controls.IsPauseEnabled().unwrap_or(false),
-        can_next: controls.IsNextEnabled().unwrap_or(false), can_prev: controls.IsPreviousEnabled().unwrap_or(false) }))
+        can_next: controls.IsNextEnabled().unwrap_or(false), can_prev: controls.IsPreviousEnabled().unwrap_or(false),
+        can_seek: controls.IsPlaybackPositionEnabled().unwrap_or(false) }))
+}
+
+#[tauri::command]
+async fn media_seek(position_secs: f64) -> Result<(), String> {
+    use windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
+    if !position_secs.is_finite() || position_secs < 0.0 || position_secs > i64::MAX as f64 / 1e7 {
+        return Err("无效的播放位置".into());
+    }
+    let manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync().map_err(|e| e.to_string())?.await.map_err(|e| e.to_string())?;
+    let session = manager.GetCurrentSession().map_err(|_| "无活动媒体会话".to_string())?;
+    let controls = session.GetPlaybackInfo().map_err(|e| e.to_string())?.Controls().map_err(|e| e.to_string())?;
+    if !controls.IsPlaybackPositionEnabled().unwrap_or(false) { return Err("播放器不支持调整进度".into()); }
+    let timeline = session.GetTimelineProperties().map_err(|e| e.to_string())?;
+    let min = timeline.MinSeekTime().map_err(|e| e.to_string())?.Duration;
+    let max = timeline.MaxSeekTime().map_err(|e| e.to_string())?.Duration;
+    if max <= min { return Err("播放器未提供可调整的进度范围".into()); }
+    let requested = ((position_secs * 1e7).round() as i64).clamp(min, max);
+    let accepted = session.TryChangePlaybackPositionAsync(requested).map_err(|e| e.to_string())?.await.map_err(|e| e.to_string())?;
+    if accepted { Ok(()) } else { Err("播放器未接受进度调整".into()) }
 }
 
 /// 读取当前媒体会话的专辑封面，返回 data URL；无封面时返回 None
@@ -1083,6 +1255,7 @@ pub fn run() {
             None,
         ))
         .manage(AppState {
+            updating: AtomicBool::new(false),
             clipboard_started: AtomicBool::new(false),
             clipboard_enabled: AtomicBool::new(false),
             system: std::sync::Mutex::new(sysinfo::System::new()),
@@ -1095,6 +1268,8 @@ pub fn run() {
             )),
         })
         .invoke_handler(tauri::generate_handler![
+            check_and_install_update,
+            list_system_fonts,
             set_island_state,
             finish_drag,
             open_settings,
@@ -1108,6 +1283,8 @@ pub fn run() {
             set_island_visible,
             restore_hotkey_available,
             is_foreground_fullscreen,
+            media_seek,
+            get_window_display_context,
             get_media_state,
             media_control,
             start_clipboard_monitor,
@@ -1148,12 +1325,12 @@ pub fn run() {
                 .expect("main window must exist");
             let mut edge = "top".to_string();
             let mut offset = f64::MAX;
-            let mut edge_attached = true;
+            let mut edge_attached = false;
             if let Ok(Some(raw)) = read_json(&setting_file()) {
                 if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {
                     edge = v["islandEdge"].as_str().unwrap_or("top").to_string();
                     offset = v["islandOffset"].as_f64().unwrap_or(f64::MAX);
-                    edge_attached = v["edgeAttached"].as_bool().unwrap_or(true);
+                    edge_attached = v["compactStyle"].as_str() == Some("notch") || v["edgeAttached"].as_bool().unwrap_or(false);
                 }
             }
             let initial_gap = if edge_attached { 0.0 } else { EDGE_MARGIN };

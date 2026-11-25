@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { computed, ref, watch } from 'vue'
 import { ArrowLeft, ArrowUpDown, ChevronRight, GripVertical, Search } from 'lucide-vue-next'
 import { CalendarDate } from '@internationalized/date'
@@ -17,7 +18,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { PANEL_SIZES, useSettingsStore } from '@/stores/settings'
-import IslandPanel from '@/components/island/IslandPanel.vue'
+import PanelPreview from '@/components/settings/PanelPreview.vue'
 import CountdownEditor from '@/components/settings/CountdownEditor.vue'
 import EventsEditor from '@/components/settings/EventsEditor.vue'
 import PomodoroSettings from '@/components/settings/PomodoroSettings.vue'
@@ -220,9 +221,9 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
     <!-- 卡片详情页：独立编辑设置 + 实时预览 -->
     <template v-if="view === 'detail' && detailId">
       <div class="flex items-center gap-2">
-        <Button variant="ghost" size="icon" class="size-8" aria-label="返回列表" @click="view = 'list'">
+        <Tooltip><TooltipTrigger as-child><Button variant="ghost" size="icon" class="size-8" aria-label="返回列表" @click="view = 'list'">
           <ArrowLeft class="size-4" aria-hidden="true" />
-        </Button>
+        </Button></TooltipTrigger><TooltipContent>返回列表</TooltipContent></Tooltip>
         <component :is="detailMeta!.icon" class="size-4 text-muted-foreground" aria-hidden="true" />
         <p class="text-sm font-semibold">{{ detailMeta!.label }}</p>
       </div>
@@ -296,12 +297,12 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
         </div>
       </div>
 
-      <!-- 使用与灵岛相同的壳层与面板组件，按所选尺寸等比显示。 -->
+      <!-- 固定示例，不挂载实时面板或触发实际操作。 -->
       <div class="flex flex-col gap-1.5">
-        <p class="text-xs text-muted-foreground">面板预览</p>
-        <div class="flex items-center justify-center overflow-hidden rounded-lg bg-muted/30 p-3" :style="{ minHeight: `${PANEL_SIZES[settings.prefs.panelSize].h * 0.8 + 24}px` }" aria-label="卡片预览">
+        <p class="text-xs text-muted-foreground">面板预览 · 示例数据</p>
+        <div class="flex items-center justify-center overflow-hidden rounded-lg p-3" :style="{ minHeight: `${PANEL_SIZES[settings.prefs.panelSize].h * 0.8 + 24}px` }" aria-label="卡片预览">
           <div :style="{ width: `${PANEL_SIZES[settings.prefs.panelSize].w}px`, height: `${PANEL_SIZES[settings.prefs.panelSize].h}px`, zoom: 0.8, borderRadius: `${Math.min(28, settings.prefs.borderRadius + 4)}px`, background: 'var(--background)', boxShadow: 'var(--island-shadow)', overflow: 'hidden' }">
-            <IslandPanel :preview-id="detailId" :open="true" :pinned="false" :notification="null" />
+            <PanelPreview :id="detailId" />
           </div>
         </div>
       </div>
@@ -310,9 +311,9 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
     <!-- 排序页 -->
     <template v-else-if="view === 'sort'">
       <div class="flex items-center gap-2">
-        <Button variant="ghost" size="icon" class="size-8" aria-label="返回列表" @click="view = 'list'">
+        <Tooltip><TooltipTrigger as-child><Button variant="ghost" size="icon" class="size-8" aria-label="返回列表" @click="view = 'list'">
           <ArrowLeft class="size-4" aria-hidden="true" />
-        </Button>
+        </Button></TooltipTrigger><TooltipContent>返回列表</TooltipContent></Tooltip>
         <p class="text-sm font-semibold">调整卡片顺序</p>
         <span class="text-xs text-muted-foreground">按住手柄上下拖动，即对应灵动岛指示点顺序</span>
       </div>
@@ -400,7 +401,7 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
                 </p>
                 <p class="truncate text-xs text-muted-foreground/80">{{ row.desc }}</p>
               </div>
-              <Button
+              <Tooltip><TooltipTrigger as-child><Button
                 variant="ghost"
                 size="icon"
                 class="size-7 shrink-0 text-muted-foreground"
@@ -408,7 +409,7 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
                 @click="openDetail(row.id)"
               >
                 <ChevronRight class="size-4" aria-hidden="true" />
-              </Button>
+              </Button></TooltipTrigger><TooltipContent>{{ `${row.label}设置` }}</TooltipContent></Tooltip>
             </div>
           </div>
         </div>

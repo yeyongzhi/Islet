@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ref } from 'vue'
 import { Plus, Rocket, Trash2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
@@ -72,7 +73,7 @@ function add() {
           <p class="truncate text-xs text-muted-foreground">{{ it.path }}</p>
         </div>
         <Button variant="ghost" size="sm" @click="editingId = it.id; nameDraft = it.name; pathDraft = it.path">编辑</Button>
-        <Button
+        <Tooltip><TooltipTrigger as-child><Button
           variant="ghost"
           size="icon"
           class="size-7 shrink-0 text-muted-foreground hover:bg-accent"
@@ -80,7 +81,7 @@ function add() {
           @click="quickstart.remove(it.id)"
         >
           <Trash2 class="size-3.5" aria-hidden="true" />
-        </Button>
+        </Button></TooltipTrigger><TooltipContent>{{ `删除 ${it.name}` }}</TooltipContent></Tooltip>
       </div>
       <p v-if="!quickstart.data?.length" class="py-2 text-center text-xs text-muted-foreground">
         还没有启动项，添加一个吧

@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { computed, onMounted, ref } from 'vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import {
@@ -85,7 +86,7 @@ function close() {
     >
       <p data-tauri-drag-region class="text-sm font-medium">Islet 灵岛 设置</p>
       <div class="flex h-full items-center" @pointerdown.stop>
-        <Button
+        <Tooltip><TooltipTrigger as-child><Button
           variant="ghost"
           size="icon"
           class="size-11 rounded-none text-muted-foreground hover:bg-accent"
@@ -93,8 +94,8 @@ function close() {
           @click="minimize"
         >
           <Minus class="size-4" aria-hidden="true" />
-        </Button>
-        <Button
+        </Button></TooltipTrigger><TooltipContent>最小化</TooltipContent></Tooltip>
+        <Tooltip><TooltipTrigger as-child><Button
           variant="ghost"
           size="icon"
           class="size-11 rounded-none text-muted-foreground hover:bg-accent"
@@ -102,8 +103,8 @@ function close() {
           @click="toggleMaximize"
         >
           <Square class="size-3.5" aria-hidden="true" />
-        </Button>
-        <Button
+        </Button></TooltipTrigger><TooltipContent>最大化/还原</TooltipContent></Tooltip>
+        <Tooltip><TooltipTrigger as-child><Button
           variant="ghost"
           size="icon"
           class="size-11 rounded-none text-muted-foreground hover:bg-red-500 hover:text-white"
@@ -111,7 +112,7 @@ function close() {
           @click="close"
         >
           <X class="size-4" aria-hidden="true" />
-        </Button>
+        </Button></TooltipTrigger><TooltipContent>关闭</TooltipContent></Tooltip>
       </div>
     </header>
 
@@ -122,34 +123,31 @@ function close() {
         :class="collapsed ? 'w-14 items-center' : 'w-44 gap-1'"
         aria-label="设置分类"
       >
-        <Button
-          v-for="c in CATEGORIES"
-          :key="c.id"
+        <Tooltip v-for="c in CATEGORIES" :key="c.id" :open="collapsed ? undefined : false"><TooltipTrigger as-child><Button
           variant="ghost"
         :class="[
           collapsed ? 'size-9 justify-center' : 'justify-start gap-2',
           active === c.id ? 'bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary' : '',
         ]"
           :aria-pressed="active === c.id"
-          :title="c.label"
+          :aria-label="c.label"
           @click="active = c.id"
         >
           <component :is="c.icon" class="size-4" aria-hidden="true" />
           <span v-if="!collapsed">{{ c.label }}</span>
-        </Button>
+        </Button></TooltipTrigger><TooltipContent side="right">{{ c.label }}</TooltipContent></Tooltip>
 
         <!-- 底部：收缩/展开侧边栏 -->
-        <Button
+        <Tooltip><TooltipTrigger as-child><Button
           variant="ghost"
           size="icon"
           class="mt-auto size-9 self-center text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           :aria-label="collapsed ? '展开侧边栏' : '收起侧边栏'"
-          :title="collapsed ? '展开侧边栏' : '收起侧边栏'"
           @click="collapsed = !collapsed"
         >
           <PanelLeftOpen v-if="collapsed" class="size-4" aria-hidden="true" />
           <PanelLeftClose v-else class="size-4" aria-hidden="true" />
-        </Button>
+        </Button></TooltipTrigger><TooltipContent>{{ collapsed ? '展开侧边栏' : '收起侧边栏' }}</TooltipContent></Tooltip>
       </nav>
 
       <div class="min-w-0 flex-1 overflow-hidden rounded-xl border border-border bg-card">

@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Check } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import {
@@ -28,8 +29,8 @@ const RADIUS_OPTIONS = [
   { value: '4', label: '微圆角 · 4 px' },
   { value: '8', label: '小圆角 · 8 px' },
   { value: '12', label: '中圆角 · 12 px' },
-  { value: '16', label: '大圆角 · 16 px（默认）' },
-  { value: '24', label: '超大圆角 · 24 px' },
+  { value: '16', label: '大圆角 · 16 px' },
+  { value: '24', label: '超大圆角 · 24 px（默认）' },
 ]
 
 const FONT_OPTIONS = [
@@ -78,15 +79,12 @@ const FONT_OPTIONS = [
     <section class="flex flex-col gap-3">
       <h3 class="text-sm font-semibold">主题色</h3>
       <div class="flex flex-wrap gap-2">
-        <Button
+        <Tooltip v-for="theme in THEME_COLORS" :key="theme.id"><TooltipTrigger as-child><Button
           variant="ghost" size="icon"
-          v-for="theme in THEME_COLORS"
-          :key="theme.id"
           type="button"
           class="flex size-8 items-center justify-center rounded-full transition-transform hover:scale-105"
           :style="{ backgroundColor: theme.primary }"
           :aria-label="`主题色：${theme.label}`"
-          :title="theme.label"
           :aria-pressed="settings.prefs.themeColor === theme.id"
           @click="settings.set('themeColor', theme.id)"
         >
@@ -95,7 +93,7 @@ const FONT_OPTIONS = [
             class="size-4 text-white"
             aria-hidden="true"
           />
-        </Button>
+        </Button></TooltipTrigger><TooltipContent>{{ `主题色：${theme.label}` }}</TooltipContent></Tooltip>
       </div>
       <p class="text-xs text-muted-foreground">
         主题色用于按钮、选中态等强调元素，即时生效。

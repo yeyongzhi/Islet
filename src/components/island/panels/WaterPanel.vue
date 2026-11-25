@@ -1,39 +1,52 @@
 <script lang="ts" setup>
-import { computed, onMounted } from 'vue'
-import { Minus } from 'lucide-vue-next'
+import { computed, onMounted, useId } from 'vue'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useHealthStore } from '@/stores/health'
 import { useSettingsStore } from '@/stores/settings'
 const health = useHealthStore()
 const settings = useSettingsStore()
 onMounted(() => health.load())
 const waterPct = computed(() => Math.min(100, Math.round(health.counters.water / settings.prefs.waterGoal * 100)))
-const GOAL_OPTIONS = [4, 6, 8, 10, 12]
+const waterRemaining = computed(() => Math.max(0, settings.prefs.waterGoal - health.counters.water))
+const glassClip = `water-glass-${useId()}`
 </script>
 <template>
-  <div class="flex h-full min-h-0 items-center gap-3 px-2">
-    <div class="flex min-w-0 flex-1 flex-col gap-3">
-      <div class="flex items-baseline justify-between gap-2"><p class="text-sm font-semibold">今日饮水</p><p class="text-sm tabular-nums"><span class="text-2xl font-semibold">{{ health.counters.water }}</span> / {{ settings.prefs.waterGoal }} 杯</p></div>
-      <div class="flex items-center gap-2">
-        <Select :model-value="String(settings.prefs.waterGoal)" @update:model-value="v => settings.set('waterGoal', Number(v))">
-          <SelectTrigger class="h-9 w-20 text-xs" aria-label="每日目标杯数"><SelectValue /></SelectTrigger>
-          <SelectContent position="popper" side="top"><SelectGroup><SelectItem v-for="g in GOAL_OPTIONS" :key="g" :value="String(g)">{{ g }} 杯</SelectItem></SelectGroup></SelectContent>
-        </Select>
-        <Button size="sm" class="h-9" aria-label="喝了一杯水" @click="health.addWater()">+1 杯</Button>
-        <Button variant="secondary" size="icon" class="size-9" aria-label="减一杯（记错时撤销）" @click="health.removeWater()"><Minus class="size-4" /></Button>
+  <div class="flex h-full min-h-0 items-center justify-center gap-3 px-2">
+    <div class="order-2 flex min-w-0 flex-col gap-3">
+      <p class="text-base font-semibold">今日饮水</p>
+      <div class="flex flex-wrap items-center gap-1.5">
+        <Button size="sm" class="h-7 px-2 text-xs" aria-label="喝了一杯水" @click="health.addWater()">+1</Button>
+        <Button variant="secondary" size="sm" class="h-7 px-2 text-xs" aria-label="减一杯（记错时撤销）" @click="health.removeWater()">-1</Button>
       </div>
     </div>
-    <div class="glass relative size-28 shrink-0" role="img" :aria-label="`每日饮水目标已完成 ${waterPct}%`">
-      <div class="glass-fill"><div class="water" :style="{ height: `${waterPct}%` }" /></div>
-      <div class="glass-outline" />
+    <div class="order-3 ml-9 flex shrink-0 flex-col items-start gap-2">
+      <p class="whitespace-nowrap text-sm text-muted-foreground tabular-nums"><span class="text-3xl font-semibold text-foreground">{{ health.counters.water }}</span> / {{ settings.prefs.waterGoal }} 杯</p>
+      <p class="whitespace-nowrap text-xs text-muted-foreground">{{ waterRemaining ? `还差 ${waterRemaining} 杯` : '今日目标已达成' }}</p>
     </div>
+    <svg class="order-1 size-28 shrink-0" viewBox="0 0 100 100" role="img" :aria-label="`每日饮水目标已完成 ${waterPct}%`">
+      <defs>
+        <clipPath :id="glassClip"><path d="M25 18 L30 80 Q31 88 39 88 H61 Q69 88 70 80 L75 18 Z" /></clipPath>
+      </defs>
+      <path d="M25 18 L30 80 Q31 88 39 88 H61 Q69 88 70 80 L75 18 Z" fill="currentColor" opacity=".04" />
+      <g :clip-path="`url(#${glassClip})`">
+        <g v-if="waterPct > 0" class="water-level" :style="{ transform: `translateY(${90 - waterPct * 0.76}px)` }">
+          <path class="wave wave-back" d="M-100 4 Q-87 -2 -75 4 T-50 4 T-25 4 T0 4 T25 4 T50 4 T75 4 T100 4 T125 4 T150 4 T175 4 T200 4 V100 H-100 Z" fill="#38bdf8" opacity=".35" />
+          <path class="wave wave-front" d="M-100 4 Q-87 10 -75 4 T-50 4 T-25 4 T0 4 T25 4 T50 4 T75 4 T100 4 T125 4 T150 4 T175 4 T200 4 V100 H-100 Z" fill="#38bdf8" opacity=".8" />
+        </g>
+      </g>
+      <path d="M25 18 L30 80 Q31 88 39 88 H61 Q69 88 70 80 L75 18" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity=".72" />
+      <path d="M25 18 H75" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".4" />
+      <path d="M34 26 L37 67" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".12" />
+    </svg>
   </div>
 </template>
 <style scoped>
-/* 水杯轮廓：SVG Repo，CC0，https://www.svgrepo.com/svg/369957/cup-empty */
-.glass-outline { position: absolute; inset: 0; background: var(--foreground); mask: url('/water-glass.svg') center / contain no-repeat; opacity: .75; }
-.glass-fill { position: absolute; inset: 25% 32% 31%; overflow: hidden; clip-path: polygon(0 0,100% 0,90% 75%,70% 100%,30% 100%,10% 75%); }
-.water { position: absolute; bottom: 0; width: 100%; background: #38bdf8; transition: height 600ms ease; }
-@media (prefers-reduced-motion: reduce) { .water { transition: none; } }
+.water-level { transition: transform 600ms ease; }
+.wave { animation: wave-flow 3s linear infinite; }
+.wave-back { animation-duration: 4s; animation-direction: reverse; }
+@keyframes wave-flow { to { transform: translateX(50px); } }
+@media (prefers-reduced-motion: reduce) {
+  .water-level { transition: none; }
+  .wave { animation: none; }
+}
 </style>

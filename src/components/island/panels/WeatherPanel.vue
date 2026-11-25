@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { onMounted } from 'vue'
 import {
   Cloud,
@@ -53,7 +54,6 @@ function weatherIcon(code: number): Component {
   <!-- 天气面板：今日详情 + 未来几天预报（城市在设置窗口配置） -->
   <div class="flex h-full flex-col gap-2">
 
-    <div class="flex justify-end"><Button variant="ghost" size="icon" class="size-7" aria-label="刷新天气" :disabled="weather.status === 'loading'" @click="weather.load()"><RefreshCw class="size-4" /></Button></div>
     <!-- 加载中 -->
     <div v-if="weather.status === 'loading'" class="flex flex-1 flex-col gap-3">
       <Skeleton class="h-16 w-full" />
@@ -72,7 +72,8 @@ function weatherIcon(code: number): Component {
     <!-- 数据就绪 -->
     <div v-else-if="weather.data" class="flex min-h-0 flex-1 gap-3">
       <!-- 左：当前天气 -->
-      <div class="flex w-32 shrink-0 flex-col justify-center gap-0.5 rounded-xl border border-border bg-muted/50 p-3">
+      <div class="relative flex w-32 shrink-0 flex-col justify-center gap-0.5 rounded-xl border border-border bg-muted/50 p-3">
+        <Tooltip><TooltipTrigger as-child><Button variant="ghost" size="icon" class="absolute right-1 top-1 size-7" aria-label="刷新天气" @click="weather.load()"><RefreshCw class="size-4" /></Button></TooltipTrigger><TooltipContent>刷新天气</TooltipContent></Tooltip>
         <component
           :is="weatherIcon(weather.data.current.weatherCode)"
           class="size-8 text-amber-400"

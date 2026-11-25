@@ -2,8 +2,9 @@
 import { computed, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { toast } from 'vue-sonner'
-import { Rocket } from 'lucide-vue-next'
+import { Monitor, Rocket, Trash2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useQuickstartStore } from '@/stores/panelData'
 
@@ -13,10 +14,18 @@ quickstart.load()
 const items = computed(() => quickstart.data ?? [])
 
 const icons = ref<Record<string, string>>({})
+function shellIcon(path: string) {
+  switch (path.toLowerCase()) {
+    case 'shell:mycomputerfolder': return Monitor
+    case 'shell:recyclebinfolder': return Trash2
+    default: return null
+  }
+}
 let iconRequest = 0
 watch(items, async list => {
   const request = ++iconRequest
   const results = await Promise.all(list.map(async item => {
+    if (shellIcon(item.path)) return [item.id, null] as const
     try { return [item.id, await invoke<string | null>('get_launch_icon', { path: item.path })] as const }
     catch { return [item.id, null] as const }
   }))
@@ -31,17 +40,16 @@ function open(path: string) {
 <template>
   <!-- 快速启动：一键打开常用应用/网址 -->
   <ScrollArea class="h-full"><div class="grid grid-cols-4 content-start gap-2 px-2">
-    <Button
-      v-for="it in items"
-      :key="it.id"
+    <Tooltip v-for="it in items" :key="it.id"><TooltipTrigger as-child><Button
       variant="outline"
       class="h-auto min-w-0 flex-col gap-1 rounded-xl bg-muted/40 px-1 py-1.5"
-      :title="it.name" :aria-label="it.name"
+      :aria-label="it.name"
       @click="open(it.path)"
     >
-      <img v-if="icons[it.id]" :src="icons[it.id]" alt="" class="size-8 object-contain" />
+      <component :is="shellIcon(it.path)" v-if="shellIcon(it.path)" class="size-4" aria-hidden="true" />
+      <img v-else-if="icons[it.id]" :src="icons[it.id]" alt="" class="size-4 object-contain" />
       <Rocket v-else class="size-4 text-muted-foreground" aria-hidden="true" />
-    </Button>
+    </Button></TooltipTrigger><TooltipContent>{{ it.name }}</TooltipContent></Tooltip>
 
     <div v-if="!items.length" class="col-span-4 flex h-full items-center justify-center">
       <div class="flex flex-col items-center gap-1.5">

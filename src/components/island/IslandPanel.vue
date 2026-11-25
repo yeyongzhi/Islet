@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { invoke } from '@tauri-apps/api/core'
 import { emit as emitEvent } from '@tauri-apps/api/event'
-import { computed, defineAsyncComponent, ref, watch, type Component } from 'vue'
+import { computed, defineAsyncComponent, type Component } from 'vue'
 import { ChevronLeft, ChevronRight, LayoutGrid, Pin, PinOff, Settings } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import {
@@ -36,6 +36,7 @@ import { useIslandStore } from '@/stores/island'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { useSettingsStore } from '@/stores/settings'
 import { useNotifyStore, type NotifyItem } from '@/stores/notify'
+import MusicRhythm from '@/components/island/MusicRhythm.vue'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const panels = usePanelsStore()
@@ -68,8 +69,6 @@ const PANEL_COMPONENTS: Record<PanelId, Component> = {
 }
 
 const props = defineProps<{ pinned: boolean; open: boolean; notification: NotifyItem | null; notificationIcon?: Component; previewId?: PanelId; renderContent?: boolean }>()
-const pinTooltipOpen = ref(false)
-watch(() => props.open, () => { pinTooltipOpen.value = false })
 const emit = defineEmits<{ drag: [event: PointerEvent]; togglePin: [] }>()
 
 const notificationText = computed(() => {
@@ -111,12 +110,13 @@ async function hideIsland() {
 <template>
   <!-- 展开面板壳层：三行严格划分（顶部栏 / 内容区 / 指示点），内容区禁止溢出 -->
   <div
-    class="grid h-full w-full select-none grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-2 text-foreground"
+    class="relative isolate grid h-full w-full select-none grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-2 text-foreground"
     aria-label="Islet 灵岛展开面板"
   >
+    <MusicRhythm v-if="!previewId && panels.activeId === 'music' && (open || renderContent) && settings.getPanelOption('music', 'rhythm', true)" class="z-0" />
     <!-- 顶部：日期时间或通知文字（可拖动；滚轮可切换面板），右侧设置菜单 -->
     <header
-      class="relative flex h-8 shrink-0 cursor-default items-center justify-center"
+      class="relative z-10 flex h-8 shrink-0 cursor-default items-center justify-center"
       @pointerdown="emit('drag', $event)"
       @wheel="handleWheel"
     >
@@ -125,9 +125,9 @@ async function hideIsland() {
           <component :is="notificationIcon" v-if="notificationIcon" class="size-4 shrink-0" aria-hidden="true" />
           <span class="truncate">{{ notificationText }}</span>
         </div>
-        <div v-else class="text-sm text-foreground">
+        <div v-else class="text-base font-bold text-foreground">
           {{ island.dateText }}
-          <span class="ml-1 font-semibold text-foreground tabular-nums">{{ island.timeText }}</span>
+          <span class="ml-1 text-foreground tabular-nums">{{ island.timeText }}</span>
         </div>
       </div>
       <div v-if="notification?.tone === 'warn'" class="absolute right-[4.5rem] flex items-center gap-1">
@@ -135,11 +135,11 @@ async function hideIsland() {
         <Button variant="ghost" size="sm" class="h-7 px-1 text-xs" @pointerdown.stop @click.stop="notify.dismiss()">关闭</Button>
       </div>
       <DropdownMenu v-if="settings.prefs.quickPanelSwitch">
-        <DropdownMenuTrigger as-child>
-          <Button variant="ghost" size="icon" class="absolute left-0 top-0 size-8" aria-label="选择面板" title="选择面板" @pointerdown.stop>
+        <Tooltip><TooltipTrigger as-child><DropdownMenuTrigger as-child>
+          <Button variant="ghost" size="icon" class="absolute left-0 top-0 size-8" aria-label="选择面板" @pointerdown.stop>
             <LayoutGrid class="size-4" aria-hidden="true" />
           </Button>
-        </DropdownMenuTrigger>
+        </DropdownMenuTrigger></TooltipTrigger><TooltipContent>选择面板</TooltipContent></Tooltip>
         <DropdownMenuContent align="start" class="w-44">
           <ScrollArea class="h-48">
             <DropdownMenuItem v-for="panel in panels.visiblePanels" :key="panel.id" @select="panels.select(panel.id)">
@@ -150,7 +150,7 @@ async function hideIsland() {
         </DropdownMenuContent>
       </DropdownMenu>
       <TooltipProvider :delay-duration="300">
-        <Tooltip :open="pinTooltipOpen">
+        <Tooltip>
           <TooltipTrigger as-child>
             <Button
               variant="ghost"
@@ -160,8 +160,6 @@ async function hideIsland() {
               :aria-label="pinned ? '取消固定面板' : '固定面板'"
               :aria-pressed="pinned"
               @pointerdown.stop
-              @pointermove="pinTooltipOpen = true"
-              @pointerleave="pinTooltipOpen = false"
               @click="emit('togglePin')"
             >
               <PinOff v-if="pinned" class="size-4" aria-hidden="true" />
@@ -172,18 +170,17 @@ async function hideIsland() {
         </Tooltip>
       </TooltipProvider>
       <DropdownMenu>
-        <DropdownMenuTrigger as-child>
+        <Tooltip><TooltipTrigger as-child><DropdownMenuTrigger as-child>
           <Button
             variant="ghost"
             size="icon"
             class="absolute right-0.5 top-0 size-8 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             aria-label="设置"
-            title="设置"
             @pointerdown.stop
           >
             <Settings class="size-4" aria-hidden="true" />
           </Button>
-        </DropdownMenuTrigger>
+        </DropdownMenuTrigger></TooltipTrigger><TooltipContent>设置</TooltipContent></Tooltip>
         <DropdownMenuContent align="end" class="text-xs [&_[data-slot=dropdown-menu-item]]:py-1.5">
           <DropdownMenuItem @click="openSettings">打开设置</DropdownMenuItem>
           <DropdownMenuItem @click="hideIsland">隐藏灵动岛（托盘可恢复）</DropdownMenuItem>
@@ -193,7 +190,7 @@ async function hideIsland() {
     </header>
 
     <!-- 内容区：当前面板（绝对定位填充，严格限定在内容行内；两侧箭头条只覆盖内容行高度） -->
-    <div class="relative min-h-0 overflow-hidden px-6 py-1">
+    <div class="relative z-10 min-h-0 overflow-hidden px-6 py-1">
       <div class="absolute inset-x-6 inset-y-1">
         <Transition name="panel" mode="out-in">
           <component :is="PANEL_COMPONENTS[previewId ?? panels.activeId]" v-if="(open || renderContent) && (previewId || panels.visiblePanels.length)" :key="previewId ?? panels.activeId" />
@@ -205,7 +202,7 @@ async function hideIsland() {
         class="absolute left-0 top-0 bottom-0 z-10 flex w-4 items-center justify-center"
         @wheel="handleWheel"
       >
-        <Button
+        <Tooltip><TooltipTrigger as-child><Button
           variant="ghost"
           size="icon"
           class="size-6 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -213,14 +210,14 @@ async function hideIsland() {
           @click="panels.prev()"
         >
           <ChevronLeft class="size-4" aria-hidden="true" />
-        </Button>
+        </Button></TooltipTrigger><TooltipContent>上一个面板</TooltipContent></Tooltip>
       </div>
       <!-- 右侧翻页箭头条（滚轮可切换面板） -->
       <div
         class="absolute right-0 top-0 bottom-0 z-10 flex w-4 items-center justify-center"
         @wheel="handleWheel"
       >
-        <Button
+        <Tooltip><TooltipTrigger as-child><Button
           variant="ghost"
           size="icon"
           class="size-6 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -228,31 +225,28 @@ async function hideIsland() {
           @click="panels.next()"
         >
           <ChevronRight class="size-4" aria-hidden="true" />
-        </Button>
+        </Button></TooltipTrigger><TooltipContent>下一个面板</TooltipContent></Tooltip>
       </div>
     </div>
 
     <!-- 底部指示点（滚轮可切换面板） -->
     <div
-      class="relative flex shrink-0 items-center justify-center pt-1"
+      class="relative z-10 flex shrink-0 items-center justify-center pt-1"
       @wheel="handleWheel"
     >
       <ScrollArea v-if="settings.prefs.panelIndicatorStyle === 'dots'" class="min-w-0 max-w-[calc(100%-4rem)]"><div class="flex w-max items-center justify-center">
-        <Button
-          v-for="p in panels.visiblePanels"
-          :key="p.id"
+        <Tooltip v-for="p in panels.visiblePanels" :key="p.id"><TooltipTrigger as-child><Button
           variant="ghost"
           size="icon"
           class="size-4 shrink-0 hover:bg-transparent"
           :aria-label="p.label"
-          :title="p.label"
           @click="panels.select(p.id)"
         >
           <span
             class="block rounded-full transition-all"
             :class="panels.activeId === p.id ? 'h-1.5 w-4 bg-foreground' : 'size-1.5 bg-muted-foreground/40 hover:bg-muted-foreground/70'"
           />
-        </Button>
+        </Button></TooltipTrigger><TooltipContent>{{ p.label }}</TooltipContent></Tooltip>
       </div><ScrollBar orientation="horizontal" /></ScrollArea>
       <span v-if="settings.prefs.panelIndicatorStyle === 'text'" class="text-xs font-medium text-foreground">
         {{ panels.visiblePanels.find((p) => p.id === panels.activeId)?.label }}<span class="ml-1 font-normal text-muted-foreground">{{ panels.index + 1 }} / {{ panels.visiblePanels.length }}</span>

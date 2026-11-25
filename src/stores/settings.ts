@@ -9,12 +9,16 @@ export type IslandEdge = 'top' | 'left' | 'right' | 'bottom'
 export type PanelSize = 'small' | 'medium' | 'large'
 export type CompactContent = 'weather' | 'music' | 'monitor' | 'network' | 'countdown' | 'pomodoro'
 export type CompactItem = 'face' | 'time' | 'weather' | 'date' | 'weekday' | 'battery'
+export const MAX_COMPACT_ITEMS = 3
 export const COMPACT_ITEMS: { id: CompactItem; label: string }[] = [
   { id: 'face', label: '灵岛表情' }, { id: 'time', label: '时间' },
   { id: 'weather', label: '天气' }, { id: 'date', label: '日期' },
   { id: 'weekday', label: '星期' }, { id: 'battery', label: '电量' },
 ]
 export type PanelIndicatorStyle = 'dots' | 'text'
+export type CompactStyle = 'notch' | 'capsule' | 'indicator'
+export type WindowDisplayMode = 'normal' | 'indicator' | 'hide'
+export type CompactDateFormat = 'YYYY-MM-DD' | 'YYYY/MM/DD' | 'MM-DD' | 'MM/DD' | 'M/D'
 
 /** 展开面板尺寸档位：w/h 为窗口逻辑尺寸，zoom 为内容整体缩放（HMR 下与 Rust 侧保持一致） */
 export const PANEL_SIZES: Record<PanelSize, { label: string; w: number; h: number; zoom: number }> = {
@@ -28,12 +32,18 @@ export interface Preferences {
   themeColor: string
   borderRadius: number
   fontSize: number
+  fontFamily: string
+  backgroundOpacity: number
   islandEdge: IslandEdge
   islandOffset: number
   edgeAttached: boolean
   panelSize: PanelSize
+  compactStyle: CompactStyle
   compactContent: CompactContent
   compactItems: CompactItem[]
+  compactShowSeconds: boolean
+  compactDateFormat: CompactDateFormat
+  compactWeatherIcon: boolean
   compactPositions: Partial<Record<CompactItem, number>>
   animationCurve: 'smooth' | 'ease-in' | 'ease-out' | 'ease-in-out'
   reminderShake: boolean
@@ -46,6 +56,8 @@ export interface Preferences {
   lastPanel: PanelId
   favoritePanels: PanelId[]
   hideOnFullscreen: boolean
+  maximizedDisplayMode: WindowDisplayMode
+  fullscreenDisplayMode: WindowDisplayMode
   monitorName: string
   clipboardEnabled: boolean
   clipboardLimit: number
@@ -109,26 +121,34 @@ export const THEME_COLORS = [
 const DEFAULTS: Preferences = {
   appearanceMode: 'dark',
   themeColor: 'violet',
-  borderRadius: 16,
+  borderRadius: 24,
   fontSize: 14,
+  fontFamily: '',
+  backgroundOpacity: 95,
   islandEdge: 'top',
   islandOffset: 640,
-  edgeAttached: true,
+  edgeAttached: false,
   panelSize: 'small' as PanelSize,
+  compactStyle: 'capsule',
   compactContent: 'weather',
   compactItems: ['face', 'time', 'weather'],
+  compactShowSeconds: true,
+  compactDateFormat: 'M/D',
+  compactWeatherIcon: false,
   compactPositions: {},
   animationCurve: 'smooth',
   reminderShake: true,
   expandMode: 'hover',
-  hoverDelay: 200,
-  leaveDelay: 500,
+  hoverDelay: 0,
+  leaveDelay: 0,
   panelIndicatorStyle: 'dots',
   quickPanelSwitch: false,
   rememberPanel: false,
   lastPanel: 'calendar',
   favoritePanels: [],
   hideOnFullscreen: false,
+  maximizedDisplayMode: 'normal',
+  fullscreenDisplayMode: 'normal',
   monitorName: '',
   clipboardEnabled: true,
   clipboardLimit: 50,
@@ -177,17 +197,26 @@ const DEFAULTS: Preferences = {
 
 /** 校正面板顺序与开关：剔除未知面板、补齐新增面板（保持其余相对顺序） */
 function normalizePanels(parsed: Partial<Preferences>): Partial<Preferences> {
+  if (!['YYYY-MM-DD', 'YYYY/MM/DD', 'MM-DD', 'MM/DD', 'M/D'].includes(parsed.compactDateFormat ?? '')) parsed.compactDateFormat = 'M/D'
+  if (typeof parsed.compactShowSeconds !== 'boolean') parsed.compactShowSeconds = true
+  if (typeof parsed.compactWeatherIcon !== 'boolean') parsed.compactWeatherIcon = false
+  if (!['normal', 'indicator', 'hide'].includes(parsed.maximizedDisplayMode ?? '')) parsed.maximizedDisplayMode = 'normal'
+  if (!['normal', 'indicator', 'hide'].includes(parsed.fullscreenDisplayMode ?? '')) parsed.fullscreenDisplayMode = parsed.hideOnFullscreen ? 'hide' : 'normal'
+  if (typeof parsed.fontFamily !== 'string' || parsed.fontFamily.length > 128) parsed.fontFamily = ''
+  if (typeof parsed.backgroundOpacity !== 'number' || !Number.isFinite(parsed.backgroundOpacity)) parsed.backgroundOpacity = 95
+  parsed.backgroundOpacity = Math.round(Math.min(100, Math.max(0, parsed.backgroundOpacity)))
+  if (!['notch', 'capsule', 'indicator'].includes(parsed.compactStyle ?? '')) parsed.compactStyle = 'capsule'
   if (!['weather', 'music', 'monitor', 'network', 'countdown', 'pomodoro'].includes(parsed.compactContent ?? '')) parsed.compactContent = 'weather'
   if (!Array.isArray(parsed.compactItems)) {
     parsed.compactItems = ['face', 'time', 'weather']
   } else {
     const known = new Set(COMPACT_ITEMS.map((item) => item.id))
-    parsed.compactItems = [...new Set(parsed.compactItems.filter((id) => known.has(id)))]
+    parsed.compactItems = [...new Set(parsed.compactItems.filter((id) => known.has(id)))].slice(0, MAX_COMPACT_ITEMS)
   }
   if (!['smooth', 'ease-in', 'ease-out', 'ease-in-out'].includes(parsed.animationCurve ?? '')) parsed.animationCurve = 'smooth'
   if (!['hover', 'click'].includes(parsed.expandMode ?? '')) parsed.expandMode = 'hover'
-  if (![0, 200, 500, 1000].includes(parsed.hoverDelay as number)) parsed.hoverDelay = 200
-  if (![0, 200, 500, 1000, 2000].includes(parsed.leaveDelay as number)) parsed.leaveDelay = 500
+  if (![0, 200, 500, 1000].includes(parsed.hoverDelay as number)) parsed.hoverDelay = 0
+  if (![0, 200, 500, 1000, 2000].includes(parsed.leaveDelay as number)) parsed.leaveDelay = 0
   if (!['dots', 'text'].includes(parsed.panelIndicatorStyle ?? '')) parsed.panelIndicatorStyle = 'dots'
   if (![14, 15, 16].includes(parsed.fontSize as number)) parsed.fontSize = 14
   if (!PANELS.some((panel) => panel.id === parsed.lastPanel)) parsed.lastPanel = 'calendar'
@@ -278,6 +307,8 @@ export const useSettingsStore = defineStore('settings', () => {
   function applyAppearance() {
     const p = prefs.value
     const root = document.documentElement
+    root.style.fontFamily = p.fontFamily ? `${JSON.stringify(p.fontFamily)}, sans-serif` : ''
+    root.style.setProperty('--island-opacity', `${p.backgroundOpacity}%`)
     root.style.setProperty('--radius', `${p.borderRadius}px`)
     // 设置窗口按档位缩放字号；岛窗口在自身视图中固定 13px 紧凑基准
     if (isSettingsWindow) {
@@ -354,9 +385,15 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   function setCompactItems(items: CompactItem[]) {
-    prefs.value.compactItems = items
+    prefs.value.compactItems = items.slice(0, MAX_COMPACT_ITEMS)
     persist()
     emit(PREFS_EVENT, JSON.stringify(prefs.value)).catch(() => {})
+  }
+
+  function setCompactLayout(items: CompactItem[], positions: Partial<Record<CompactItem, number>>) {
+    prefs.value.compactItems = items
+    prefs.value.compactPositions = { ...prefs.value.compactPositions, ...positions }
+    persist()
   }
 
   /** 读取面板独立设置（未配置时用注册表默认值） */
@@ -380,5 +417,5 @@ export const useSettingsStore = defineStore('settings', () => {
     persist()
   }
 
-  return { prefs, loaded, load, set, setCompactItems, setCompactPosition, getPanelOption, setPanelOption, applyAppearance, updateIslandLayout }
+  return { prefs, loaded, load, set, setCompactItems, setCompactPosition, setCompactLayout, getPanelOption, setPanelOption, applyAppearance, updateIslandLayout }
 })

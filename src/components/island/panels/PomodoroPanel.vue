@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { computed, ref, watch } from 'vue'
 import { Clock3, Coffee, Pause, Play, Briefcase, RotateCcw } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
@@ -80,17 +81,16 @@ watch(
 
       <!-- 右：阶段文案 + 档位切换 -->
       <div class="flex shrink-0 flex-col items-start gap-0">
-        <Button
+        <Tooltip><TooltipTrigger as-child><Button
           variant="ghost"
           size="icon"
           class="size-8 text-muted-foreground hover:bg-accent"
           :disabled="pomodoro.phase !== 'idle'"
           :aria-label="`切换时长，当前 ${minutes} 分钟`"
-          :title="`切换时长（当前 ${minutes} 分钟）`"
           @click="cycleDuration"
         >
           <Clock3 class="size-4 text-muted-foreground" aria-hidden="true" />
-        </Button>
+        </Button></TooltipTrigger><TooltipContent>{{ `切换时长，当前 ${minutes} 分钟` }}</TooltipContent></Tooltip>
       </div>
     </div>
 

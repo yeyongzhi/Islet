@@ -1,7 +1,9 @@
 <script lang="ts" setup>
-import { computed, onMounted } from 'vue'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { computed, onMounted, ref, watch } from 'vue'
 import { Music, Pause, Play, SkipBack, SkipForward } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
+import { Slider } from '@/components/ui/slider'
 import { useMusicStore, type MediaAction } from '@/stores/music'
 
 const music = useMusicStore()
@@ -9,11 +11,14 @@ const music = useMusicStore()
 onMounted(() => music.startPolling())
 
 const hasTrack = computed(() => !!music.state?.title)
-const progressPct = computed(() => {
-  const s = music.state
-  if (!s || s.duration_secs <= 0) return 0
-  return Math.min(100, Math.max(0, (s.position_secs / s.duration_secs) * 100))
-})
+const seekValue = ref<number | null>(null)
+const displayPosition = computed(() => seekValue.value ?? music.state?.position_secs ?? 0)
+watch(() => [music.state?.title, music.state?.artist, music.state?.player], () => { seekValue.value = null })
+async function commitSeek(values: number[]) {
+  const value = values[0]
+  if (value !== undefined) await music.seek(value)
+  seekValue.value = null
+}
 
 function fmt(total: number) {
   const safe = Math.max(0, Math.floor(total))
@@ -30,7 +35,7 @@ function toggle() {
 
 <template>
   <!-- 音乐面板：左封面 / 右曲名进度与控制（SMTC 读取本机播放器） -->
-  <div class="flex h-full flex-col items-center justify-center gap-3">
+  <div class="relative flex h-full flex-col items-center justify-center gap-3 overflow-hidden">
     <!-- 空状态：无媒体会话 -->
     <template v-if="!hasTrack">
       <div class="flex size-14 items-center justify-center rounded-2xl border border-border bg-muted">
@@ -46,20 +51,11 @@ function toggle() {
 
     <!-- 播放中 / 有会话 -->
     <template v-else>
-      <div class="flex w-full items-center gap-4">
+      <div class="relative flex h-full w-full items-center gap-4">
         <!-- 左：专辑封面（加载失败回退占位图标） -->
-        <img
-          v-if="music.thumbnail"
-          :src="music.thumbnail"
-          class="size-24 shrink-0 rounded-xl object-cover"
-          alt=""
-          @error="music.thumbnail = null"
-        />
-        <div
-          v-else
-          class="flex size-24 shrink-0 items-center justify-center rounded-xl bg-primary"
-        >
-          <Music class="size-10 text-primary-foreground" aria-hidden="true" />
+        <div class="relative aspect-square h-full max-h-36 max-w-[45%] shrink-0 overflow-hidden rounded-xl bg-primary">
+          <img v-if="music.thumbnail" :src="music.thumbnail" class="absolute inset-0 size-full object-cover" alt="" @error="music.thumbnail = null" />
+          <div v-else class="absolute inset-0 flex items-center justify-center"><Music class="size-10 text-primary-foreground" aria-hidden="true" /></div>
         </div>
 
         <!-- 右：曲名 + 进度 + 控制 -->
@@ -73,15 +69,17 @@ function toggle() {
 
           <!-- 进度条（播放器未上报时间轴时显示不可用提示） -->
           <div class="w-full">
-            <div
+            <Slider
               v-if="music.state!.duration_secs > 0"
-              class="h-2 w-full overflow-hidden rounded-full bg-muted"
-            >
-              <div
-                class="h-full rounded-full bg-primary transition-[width] duration-500"
-                :style="{ width: `${progressPct}%` }"
-              />
-            </div>
+              :model-value="[Math.min(displayPosition, music.state!.duration_secs)]"
+              :max="music.state!.duration_secs"
+              :step="1"
+              :disabled="!music.state!.can_seek"
+              :title="music.state!.can_seek ? '拖动调整播放进度' : '当前播放器不支持调整进度'"
+              aria-label="播放进度"
+              @update:model-value="values => { if (values?.[0] !== undefined) seekValue = values[0] }"
+              @value-commit="commitSeek"
+            />
             <div
               v-else
               class="h-2 w-full overflow-hidden rounded-full bg-muted"
@@ -91,7 +89,7 @@ function toggle() {
             </div>
             <div class="mt-1.5 flex justify-between text-xs text-muted-foreground tabular-nums">
               <template v-if="music.state!.duration_secs > 0">
-                <span>{{ fmt(music.state!.position_secs) }}</span>
+                <span>{{ fmt(displayPosition) }}</span>
                 <span>{{ fmt(music.state!.duration_secs) }}</span>
               </template>
               <span v-else class="w-full text-center">该播放器未上报播放进度</span>
@@ -100,7 +98,7 @@ function toggle() {
 
           <!-- 播放控制 -->
           <div class="flex items-center justify-center gap-4 pt-1.5">
-            <Button
+            <Tooltip><TooltipTrigger as-child><Button
               variant="ghost"
               size="icon"
               class="size-10 hover:bg-accent"
@@ -109,8 +107,8 @@ function toggle() {
               @click="music.control('prev')"
             >
               <SkipBack class="size-5" aria-hidden="true" />
-            </Button>
-            <Button
+            </Button></TooltipTrigger><TooltipContent>上一曲</TooltipContent></Tooltip>
+            <Tooltip><TooltipTrigger as-child><Button
               size="icon"
               class="size-11 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90"
               :aria-label="music.state!.playing ? '暂停' : '播放'"
@@ -119,8 +117,8 @@ function toggle() {
             >
               <Pause v-if="music.state!.playing" class="size-5" aria-hidden="true" />
               <Play v-else class="size-5" aria-hidden="true" />
-            </Button>
-            <Button
+            </Button></TooltipTrigger><TooltipContent>{{ music.state!.playing ? '暂停' : '播放' }}</TooltipContent></Tooltip>
+            <Tooltip><TooltipTrigger as-child><Button
               variant="ghost"
               size="icon"
               class="size-10 hover:bg-accent"
@@ -129,7 +127,7 @@ function toggle() {
               @click="music.control('next')"
             >
               <SkipForward class="size-5" aria-hidden="true" />
-            </Button>
+            </Button></TooltipTrigger><TooltipContent>下一曲</TooltipContent></Tooltip>
           </div>
         </div>
       </div>

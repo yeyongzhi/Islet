@@ -70,7 +70,8 @@ jobs:
           $forbidden = @($files | Where-Object { $_.Name -match '^(\.env(?:\..*)?|.*\.(?:pem|key|pfx|p12|log))$' -or $_.FullName -match '[\\/](?:node_modules|\.git|__pycache__)[\\/]' })
           if ($forbidden.Count) { $forbidden | ForEach-Object { Write-Error "Unexpected file: $($_.FullName)" }; throw 'Installer content check failed' }
           $files | ForEach-Object { Write-Output $_.FullName }
-          Get-FileHash -Algorithm SHA256 $installers[0].FullName
+          $hash = (Get-FileHash -Algorithm SHA256 $installers[0].FullName).Hash.ToLowerInvariant()
+          [System.IO.File]::WriteAllText("$($installers[0].FullName).sha256", "$hash`n", [System.Text.UTF8Encoding]::new($false))
 
       - name: Prepare release notes
         shell: pwsh
@@ -105,4 +106,6 @@ jobs:
           body_path: release-notes.md
           draft: false
           prerelease: ${{ contains(steps.release.outputs.tag, '-') }}
-          files: src-tauri/target/release/bundle/nsis/*-setup.exe
+          files: |
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/bundle/nsis/*-setup.exe.sha256

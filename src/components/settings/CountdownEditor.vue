@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { computed, ref } from 'vue'
 import { CalendarPlus, Trash2 } from 'lucide-vue-next'
 import type { DateValue } from 'reka-ui'
@@ -70,7 +71,7 @@ function add() {
           <Calendar v-model="dateModel" locale="zh-CN" />
         </PopoverContent>
       </Popover>
-      <Button
+      <Tooltip><TooltipTrigger as-child><Button
         size="icon"
         class="size-9 shrink-0"
         aria-label="添加倒数日"
@@ -78,7 +79,7 @@ function add() {
         @click="add"
       >
         <CalendarPlus class="size-4" aria-hidden="true" />
-      </Button>
+      </Button></TooltipTrigger><TooltipContent>添加倒数日</TooltipContent></Tooltip>
     </div>
     <div class="grid grid-cols-2 gap-2">
       <Select v-model="repeat"><SelectTrigger aria-label="重复周期"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="none">不重复</SelectItem><SelectItem value="yearly">每年重复</SelectItem><SelectItem value="monthly">每月重复</SelectItem></SelectGroup></SelectContent></Select>
@@ -101,14 +102,14 @@ function add() {
         <span class="shrink-0 text-xs text-muted-foreground tabular-nums">
           {{ countdown.daysLeft(e.date, e.repeat) >= 0 ? `剩 ${countdown.daysLeft(e.date, e.repeat)} 天` : `已过 ${-countdown.daysLeft(e.date, e.repeat)} 天` }}
         </span>
-        <AlertDialog><AlertDialogTrigger as-child><Button
+        <AlertDialog><Tooltip><TooltipTrigger as-child><AlertDialogTrigger as-child><Button
           variant="ghost"
           size="icon"
           class="size-7 shrink-0 text-muted-foreground hover:bg-accent"
           :aria-label="`删除 ${e.name}`"
         >
           <Trash2 class="size-4" aria-hidden="true" />
-        </Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>删除 {{ e.name }}？</AlertDialogTitle><AlertDialogDescription>删除后无法恢复此倒数日。</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction class="bg-destructive text-destructive-foreground" @click="countdown.remove(e.id)">删除</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+        </Button></AlertDialogTrigger></TooltipTrigger><TooltipContent>{{ `删除 ${e.name}` }}</TooltipContent></Tooltip><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>删除 {{ e.name }}？</AlertDialogTitle><AlertDialogDescription>删除后无法恢复此倒数日。</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction class="bg-destructive text-destructive-foreground" @click="countdown.remove(e.id)">删除</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       </div>
       <p v-if="!countdown.data?.length" class="py-2 text-center text-xs text-muted-foreground">
         还没有倒数日，添加一个吧

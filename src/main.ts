@@ -5,6 +5,11 @@ import router from './router'
 import './style.css'
 import { useSettingsStore } from './stores/settings'
 
+// 正式版屏蔽 WebView 默认右键菜单；业务组件的右键菜单仍可正常处理事件。
+if (import.meta.env.PROD) {
+  document.addEventListener('contextmenu', (event) => event.preventDefault())
+}
+
 const app = createApp(App)
 const pinia = createPinia()
 

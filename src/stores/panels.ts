@@ -131,7 +131,7 @@ export const PANEL_OPTIONS: Record<PanelId, PanelOptionDef[]> = {
   netspeed: [],
   disks: [],
   sysinfo: [],
-  music: [],
+  music: [{ key: 'rhythm', label: '开启动画律动', type: 'switch', default: true }],
   pomodoro: [],
   clipboard: [],
   transfer: [],

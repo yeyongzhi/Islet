@@ -39,7 +39,7 @@ export const useIslandStore = defineStore('island', () => {
       expanded: value,
       offset: settings.prefs.islandOffset,
       panelWidth: sizeOverride?.w ?? size.w,
-      edgeGap: settings.prefs.edgeAttached ? 0 : 8,
+      edgeGap: settings.prefs.compactStyle === 'notch' || settings.prefs.edgeAttached ? 0 : 8,
       panelHeight: sizeOverride?.h ?? size.h,
     }).catch(() => {
       // 非 Tauri 环境（浏览器直接访问）没有窗口命令

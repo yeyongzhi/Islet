@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { FolderInput, Folder, File, Trash2, Inbox } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
@@ -152,7 +153,7 @@ onMounted(async () => {
             />
             <span class="min-w-0 flex-1 truncate text-xs">{{ item.name }}</span>
             <span class="shrink-0 text-xs text-muted-foreground">{{ item.exists === false ? '原文件不可用' : item.isDir ? '文件夹' : item.size != null ? `${(item.size / 1048576).toFixed(1)} MB` : '文件' }}</span>
-            <Button
+            <Tooltip><TooltipTrigger as-child><Button
               variant="ghost"
               size="icon"
               class="size-7 shrink-0 text-destructive hover:bg-accent"
@@ -161,7 +162,7 @@ onMounted(async () => {
               @click.stop="transfer.remove(item.path)"
             >
               <Trash2 class="size-4" aria-hidden="true" />
-            </Button>
+            </Button></TooltipTrigger><TooltipContent>{{ `移除 ${item.name}` }}</TooltipContent></Tooltip>
           </div>
         </div>
       </ScrollArea>

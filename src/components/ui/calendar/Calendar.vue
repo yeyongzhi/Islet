@@ -9,6 +9,7 @@ import { CalendarRoot, useDateFormatter, useForwardPropsEmits } from "reka-ui"
 import { createYear, createYearRange, toDate } from "reka-ui/date"
 import { computed, toRaw } from "vue"
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { CalendarCell, CalendarCellTrigger, CalendarGrid, CalendarGridBody, CalendarGridHead, CalendarGridRow, CalendarHeadCell, CalendarHeader, CalendarHeading, CalendarNextButton, CalendarPrevButton } from "."
 
 const props = withDefaults(defineProps<CalendarRootProps & { class?: HTMLAttributes["class"], layout?: LayoutTypes, yearRange?: DateValue[] }>(), {
@@ -122,12 +123,12 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
       </slot>
 
       <nav class="pointer-events-none flex items-center gap-1 absolute top-0 inset-x-0 justify-between">
-        <CalendarPrevButton>
+        <Tooltip><TooltipTrigger as-child><CalendarPrevButton aria-label="上个月">
           <slot name="calendar-prev-icon" />
-        </CalendarPrevButton>
-        <CalendarNextButton>
+        </CalendarPrevButton></TooltipTrigger><TooltipContent>上个月</TooltipContent></Tooltip>
+        <Tooltip><TooltipTrigger as-child><CalendarNextButton aria-label="下个月">
           <slot name="calendar-next-icon" />
-        </CalendarNextButton>
+        </CalendarNextButton></TooltipTrigger><TooltipContent>下个月</TooltipContent></Tooltip>
       </nav>
     </CalendarHeader>
 
