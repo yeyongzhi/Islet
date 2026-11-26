@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { PANELS, PANEL_OPTIONS, type PanelId } from '@/stores/panels'
+import { migrateNetworkPanels } from '@/lib/networkPanelMigration'
 
 export type AppearanceMode = 'light' | 'dark' | 'system'
 export type IslandEdge = 'top' | 'left' | 'right' | 'bottom'
@@ -91,6 +92,7 @@ export interface Preferences {
   notifyBattery: boolean
   notifyMusic: boolean
   notifyPomodoro: boolean
+  notifyTimer: boolean
   notifySedentary: boolean
   notifyEyecare: boolean
   notifyVolume: boolean
@@ -181,6 +183,7 @@ const DEFAULTS: Preferences = {
   notifyBattery: true,
   notifyMusic: true,
   notifyPomodoro: true,
+  notifyTimer: true,
   notifySedentary: true,
   notifyEyecare: true,
   notifyVolume: true,
@@ -196,6 +199,7 @@ const DEFAULTS: Preferences = {
 
 /** 校正面板顺序与开关：剔除未知面板、补齐新增面板（保持其余相对顺序） */
 function normalizePanels(parsed: Partial<Preferences>): Partial<Preferences> {
+  parsed = migrateNetworkPanels(parsed)
   if (!['YYYY-MM-DD', 'YYYY/MM/DD', 'MM-DD', 'MM/DD', 'M/D'].includes(parsed.compactDateFormat ?? '')) parsed.compactDateFormat = 'M/D'
   if (typeof parsed.compactShowSeconds !== 'boolean') parsed.compactShowSeconds = true
   if (typeof parsed.compactWeatherIcon !== 'boolean') parsed.compactWeatherIcon = false

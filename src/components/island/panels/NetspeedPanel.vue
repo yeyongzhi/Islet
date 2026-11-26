@@ -1,61 +1,81 @@
-<script lang="ts" setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { ArrowDown, ArrowUp } from 'lucide-vue-next'
+import { ArrowDown, ArrowUp, Network, Wifi, WifiOff } from 'lucide-vue-next'
 import { Card, CardContent } from '@/components/ui/card'
 import TrendLine from '@/components/island/TrendLine.vue'
 
-const downKbps = ref<number | null>(null)
-const upKbps = ref<number | null>(null)
-const failed = ref(false)
-const downloadHistory = ref<number[]>([])
-const uploadHistory = ref<number[]>([])
-let timer: number | undefined
+interface NetworkState { connected: boolean; internet?: boolean; wifi?: boolean; name?: string | null; signal?: number | null }
+interface SpeedState { down_kbps: number | null; up_kbps: number | null }
+const props = defineProps<{ preview?: boolean }>()
+const connection = ref<NetworkState | null>(props.preview ? { connected: true, internet: true, wifi: true, name: '示例网络', signal: 4 } : null)
+const speed = ref<SpeedState | null>(props.preview ? { down_kbps: 2458, up_kbps: 320 } : null)
+const connectionFailed = ref(false)
+const speedFailed = ref(false)
+const downHistory = ref<number[]>(props.preview ? [500, 850, 690, 1250, 1100, 1800, 1500, 2458] : [])
+const upHistory = ref<number[]>(props.preview ? [100, 180, 150, 220, 170, 270, 210, 320] : [])
+let connectionTimer: number | undefined
+let speedTimer: number | undefined
+let readingConnection = false
+let readingSpeed = false
 
-function fmt(kbps: number): string {
-  if (kbps >= 1024) return `${(kbps / 1024).toFixed(1)} MB/s`
-  return `${kbps} KB/s`
-}
-
-async function poll() {
-  try {
-    const res = await invoke<{ down_kbps: number; up_kbps: number }>('get_network_speed')
-    downKbps.value = res.down_kbps
-    upKbps.value = res.up_kbps
-    downloadHistory.value = [...downloadHistory.value, res.down_kbps].slice(-30)
-    uploadHistory.value = [...uploadHistory.value, res.up_kbps].slice(-30)
-    failed.value = false
-  } catch {
-    failed.value = true
-  }
-}
-
-onMounted(() => {
-  poll()
-  timer = window.setInterval(poll, 1000)
+const connectionText = computed(() => {
+  if (connectionFailed.value) return connection.value ? '连接状态更新失败' : '连接状态不可用'
+  if (!connection.value) return '加载中…'
+  if (!connection.value.connected) return '未连接网络'
+  const state = connection.value.internet ? '已连接互联网' : '无互联网访问'
+  return connection.value.wifi && connection.value.signal != null ? `${state} · 信号 ${connection.value.signal}/5` : state
 })
-
-onBeforeUnmount(() => window.clearInterval(timer))
+function formatSpeed(value: number | null | undefined) {
+  if (value == null) return speedFailed.value ? '—' : '加载中…'
+  return value >= 1024 ? `${(value / 1024).toFixed(1)} MB/s` : `${value} KB/s`
+}
+async function refreshConnection() {
+  if (readingConnection) return
+  readingConnection = true
+  try { connection.value = await invoke<NetworkState>('get_network_connection'); connectionFailed.value = false }
+  catch { connectionFailed.value = true }
+  finally { readingConnection = false }
+}
+async function refreshSpeed() {
+  if (readingSpeed) return
+  readingSpeed = true
+  try {
+    const next = await invoke<SpeedState>('get_network_speed')
+    speed.value = next
+    if (next.down_kbps !== null) downHistory.value = [...downHistory.value, next.down_kbps].slice(-30)
+    if (next.up_kbps !== null) upHistory.value = [...upHistory.value, next.up_kbps].slice(-30)
+    speedFailed.value = false
+  } catch { speedFailed.value = true }
+  finally { readingSpeed = false }
+}
+onMounted(() => {
+  if (props.preview) return
+  void refreshConnection()
+  void refreshSpeed()
+  connectionTimer = window.setInterval(refreshConnection, 5000)
+  speedTimer = window.setInterval(refreshSpeed, 1000)
+})
+onBeforeUnmount(() => { window.clearInterval(connectionTimer); window.clearInterval(speedTimer) })
 </script>
 
 <template>
-  <!-- 网速监控：实时上/下行 -->
-  <div class="grid h-full grid-cols-2 gap-2 py-1">
-    <Card class="min-w-0 gap-0 bg-sky-500/5 py-0 shadow-none">
-      <CardContent class="flex h-full flex-col justify-center gap-2 p-3">
-        <span class="flex items-center gap-1.5 text-xs text-muted-foreground"><ArrowDown class="size-4 text-sky-500" />下载速度</span>
-        <span class="truncate text-xl font-semibold tabular-nums">{{ downKbps === null ? '读取中…' : fmt(downKbps) }}</span>
-        <TrendLine :values="downloadHistory" label="下载速度" />
-        <span class="text-xs text-muted-foreground">{{ failed ? '读取失败' : '实时下行' }}</span>
-      </CardContent>
-    </Card>
-    <Card class="min-w-0 gap-0 bg-emerald-500/5 py-0 shadow-none">
-      <CardContent class="flex h-full flex-col justify-center gap-2 p-3">
-        <span class="flex items-center gap-1.5 text-xs text-muted-foreground"><ArrowUp class="size-4 text-emerald-500" />上传速度</span>
-        <span class="truncate text-xl font-semibold tabular-nums">{{ upKbps === null ? '读取中…' : fmt(upKbps) }}</span>
-        <TrendLine :values="uploadHistory" label="上传速度" />
-        <span class="text-xs text-muted-foreground">{{ failed ? '读取失败' : '实时上行' }}</span>
-      </CardContent>
-    </Card>
+  <div class="flex h-full min-h-0 flex-col gap-2">
+    <div class="flex min-w-0 shrink-0 items-center gap-2">
+      <div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary" aria-hidden="true"><WifiOff v-if="connection && !connection.connected" class="size-4" /><Wifi v-else-if="connection?.wifi" class="size-4" /><Network v-else class="size-4" /></div>
+      <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold" :title="connection?.name ?? undefined">{{ connection?.name || (connection?.connected ? '当前网络' : '网络连接') }}</p><p class="truncate text-xs text-muted-foreground" role="status">{{ connectionText }}</p></div>
+      <span class="shrink-0 text-[10px] text-muted-foreground" title="网速为所有网卡流量之和">全部网卡</span>
+    </div>
+    <div class="grid min-h-0 flex-1 grid-cols-2 gap-2">
+      <Card v-for="item in [{ label: '下载', icon: ArrowDown, value: speed?.down_kbps, history: downHistory }, { label: '上传', icon: ArrowUp, value: speed?.up_kbps, history: upHistory }]" :key="item.label" class="min-h-0 min-w-0 gap-0 bg-muted/30 py-0 shadow-none">
+        <CardContent class="flex h-full min-h-0 flex-col justify-between gap-0.5 p-2">
+          <p class="flex items-center gap-1 text-xs text-muted-foreground"><component :is="item.icon" class="size-4 text-primary" aria-hidden="true" />{{ item.label }}</p>
+          <p class="truncate text-base font-semibold tabular-nums">{{ formatSpeed(item.value) }}</p>
+          <p v-if="speedFailed" class="truncate text-xs text-muted-foreground">{{ item.value == null ? '读取失败' : '更新失败 · 旧数据' }}</p>
+          <TrendLine v-else-if="item.history.length > 1" :values="item.history" :label="`${item.label}速度`" />
+          <p v-else class="truncate text-xs text-muted-foreground">采样中…</p>
+        </CardContent>
+      </Card>
+    </div>
   </div>
 </template>

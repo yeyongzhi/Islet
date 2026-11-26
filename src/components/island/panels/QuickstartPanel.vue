@@ -45,7 +45,7 @@ function open(path: string) {
 
 <template>
   <!-- 快速启动：一键打开常用应用/网址 -->
-  <ScrollArea class="h-full"><div class="grid grid-cols-4 content-start gap-2 px-2">
+  <ScrollArea class="h-full"><div class="grid grid-cols-4 content-start gap-2">
     <Tooltip v-for="it in items" :key="it.id"><TooltipTrigger as-child><Button
       variant="outline"
       class="h-auto min-w-0 flex-col gap-1 rounded-xl bg-muted/40 px-1 py-1.5"

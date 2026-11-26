@@ -50,7 +50,7 @@ async function openDisk(disk: DiskInfo) {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col gap-2 px-1 py-1">
+  <div class="flex h-full min-h-0 flex-col gap-2">
     <template v-if="status === 'ready' && disks.length">
       <div class="flex items-baseline justify-between gap-2">
         <span class="text-xs font-medium text-muted-foreground">磁盘空间</span>
@@ -92,7 +92,7 @@ async function openDisk(disk: DiskInfo) {
 
     </template>
     <p v-else class="m-auto text-center text-sm text-muted-foreground">
-      {{ status === 'loading' ? '正在读取磁盘信息…' : status === 'error' ? '磁盘信息读取失败' : '未发现可用磁盘' }}
+      {{ status === 'loading' ? '加载中…' : status === 'error' ? '磁盘信息读取失败' : '未发现可用磁盘' }}
     </p>
   </div>
 </template>

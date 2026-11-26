@@ -31,6 +31,9 @@ const MusicPanel = defineAsyncComponent(() => import('./panels/MusicPanel.vue'))
 const PomodoroPanel = defineAsyncComponent(() => import('./panels/PomodoroPanel.vue'))
 const WeatherPanel = defineAsyncComponent(() => import('./panels/WeatherPanel.vue'))
 const GalleryPanel = defineAsyncComponent(() => import('./panels/GalleryPanel.vue'))
+const TimerPanel = defineAsyncComponent(() => import('./panels/TimerPanel.vue'))
+const VolumePanel = defineAsyncComponent(() => import('./panels/VolumePanel.vue'))
+const PowerPanel = defineAsyncComponent(() => import('./panels/PowerPanel.vue'))
 import { usePanelsStore, type PanelId } from '@/stores/panels'
 import { useIslandStore } from '@/stores/island'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
@@ -46,6 +49,9 @@ const notify = useNotifyStore()
 
 const PANEL_COMPONENTS: Record<PanelId, Component> = {
   gallery: GalleryPanel,
+  timer: TimerPanel,
+  volume: VolumePanel,
+  power: PowerPanel,
   calendar: CalendarPanel,
   clock: ClockPanel,
   progress: ProgressPanel,
@@ -189,11 +195,11 @@ async function hideIsland() {
       </DropdownMenu>
     </header>
 
-    <!-- 内容区：当前面板（绝对定位填充，严格限定在内容行内；两侧箭头条只覆盖内容行高度） -->
-    <div class="relative z-10 min-h-0 overflow-hidden px-6 py-1">
-      <div class="absolute inset-x-6 inset-y-1">
+    <!-- 内容区统一从顶部铺满；左右保留翻页操作区，面板内部不要再添加整体外边距。 -->
+    <div class="relative z-10 min-h-0 overflow-hidden">
+      <div class="absolute inset-y-0 inset-x-6">
         <Transition name="panel" mode="out-in">
-          <component :is="PANEL_COMPONENTS[previewId ?? panels.activeId]" v-if="(open || renderContent) && (previewId || panels.visiblePanels.length)" :key="previewId ?? panels.activeId" />
+          <component :is="PANEL_COMPONENTS[previewId ?? panels.activeId]" v-if="(open || renderContent) && (previewId || panels.visiblePanels.length)" :key="previewId ?? panels.activeId" class="h-full w-full min-h-0 min-w-0" />
         </Transition>
       </div>
 

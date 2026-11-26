@@ -5,6 +5,7 @@ import { compactLayout, compactWidth } from '@/lib/compactLayout'
 import { invoke } from '@tauri-apps/api/core'
 import RobotFace from '@/components/island/RobotFace.vue'
 import { Button } from '@/components/ui/button'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { weatherText } from '@/services/openMeteo'
 import { useIslandStore } from '@/stores/island'
 import { usePomodoroStore } from '@/stores/pomodoro'
@@ -15,11 +16,13 @@ const island = useIslandStore()
 const pomodoro = usePomodoroStore()
 const settings = useSettingsStore()
 const weather = useWeatherStore()
-const props = defineProps<{ editMode?: boolean; draggingItem?: CompactItem | null }>()
-const emit = defineEmits<{ dragStart: [id: CompactItem, event: PointerEvent]; move: [id: CompactItem, direction: number] }>()
+const props = defineProps<{ editMode?: boolean; selectedItem?: CompactItem | null; previewItems?: CompactItem[]; previewPositions?: Partial<Record<CompactItem, number>> }>()
+const emit = defineEmits<{ dragStart: [id: CompactItem, event: PointerEvent]; select: [id: CompactItem | null]; move: [id: CompactItem, direction: number]; align: [id: CompactItem, alignment: 'left' | 'center' | 'right'] }>()
 function label(id: CompactItem) { return COMPACT_ITEMS.find(item => item.id === id)!.label }
 const enabled = computed(() => new Set(settings.prefs.compactItems))
-const layout = computed(() => compactLayout(settings.prefs.compactItems, settings.prefs.compactPositions ?? {}, settings.prefs))
+const displayedItems = computed(() => props.previewItems ?? settings.prefs.compactItems)
+const layoutWidth = computed(() => compactWidth(displayedItems.value, settings.prefs))
+const layout = computed(() => compactLayout(displayedItems.value, props.previewPositions ?? settings.prefs.compactPositions ?? {}, settings.prefs))
 let weatherTimer: number | undefined
 let batteryTimer: number | undefined
 const battery = ref<number | null>(null)
@@ -51,7 +54,7 @@ function itemText(id: string) {
     }
     case 'weekday': return ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][now.getDay()]
     case 'battery': return props.editMode ? '80%' : battery.value === null ? '无电池' : `${Math.round(battery.value)}%`
-    case 'weather': return props.editMode ? '24°' : weather.data ? `${weather.data.current.temperature}°${weather.status === 'error' ? '（旧）' : ''}` : weather.status === 'error' ? '天气不可用' : '天气读取中'
+    case 'weather': return props.editMode ? '24°' : weather.data ? `${weather.data.current.temperature}°${weather.status === 'error' ? '（旧）' : ''}` : weather.status === 'error' ? '天气不可用' : '加载中…'
     default: return ''
   }
 }
@@ -93,12 +96,21 @@ const weatherIcon = computed(() => {
     </template>
     <template v-else>
       <template v-for="item in layout" :key="item.id">
-        <Button v-if="editMode" variant="ghost" :data-compact-item="item.id" class="absolute top-0 h-full min-w-0 cursor-grab touch-none gap-1 rounded-md px-0 transition-none hover:bg-transparent dark:hover:bg-transparent active:cursor-grabbing" :class="{ 'outline-1 outline-dashed outline-primary -outline-offset-1': draggingItem === item.id }" :style="{ left: `${item.left / compactWidth(settings.prefs.compactItems, settings.prefs) * 100}%`, width: `${item.width / compactWidth(settings.prefs.compactItems, settings.prefs) * 100}%` }" :aria-label="`${label(item.id)}，拖动或按左右方向键调整位置`" @pointerdown.prevent="emit('dragStart', item.id, $event)" @keydown.left.prevent="emit('move', item.id, -1)" @keydown.right.prevent="emit('move', item.id, 1)">
-          <RobotFace v-if="item.id === 'face'" class="size-8 shrink-0" />
-          <component :is="weatherIcon" v-if="item.id === 'weather' && settings.prefs.compactWeatherIcon && weatherIcon" class="size-4 shrink-0" aria-hidden="true" />
-          <span v-if="item.id !== 'face'" class="truncate font-bold tabular-nums" :class="['time', 'date', 'weekday'].includes(item.id) ? 'text-base' : 'text-xs'">{{ itemText(item.id) }}</span>
-        </Button>
-        <div v-else class="absolute top-0 flex h-full min-w-0 items-center justify-center gap-1" :style="{ left: `${item.left / compactWidth(settings.prefs.compactItems, settings.prefs) * 100}%`, width: `${item.width / compactWidth(settings.prefs.compactItems, settings.prefs) * 100}%` }">
+        <ContextMenu v-if="editMode">
+          <ContextMenuTrigger as-child>
+            <Button variant="ghost" :data-compact-item="item.id" class="absolute top-0 h-full min-w-0 touch-none gap-1 rounded-md px-0 transition-none hover:bg-transparent dark:hover:bg-transparent" :class="selectedItem === item.id ? 'cursor-grab outline-1 outline-dashed outline-primary -outline-offset-1 active:cursor-grabbing' : 'cursor-pointer'" :style="{ left: `${item.left / layoutWidth * 100}%`, width: `${item.width / layoutWidth * 100}%` }" :aria-label="`${label(item.id)}，选中后拖动或按左右方向键调整位置`" :aria-pressed="selectedItem === item.id" @click="emit('select', item.id)" @contextmenu="emit('select', item.id)" @pointerdown="emit('dragStart', item.id, $event)" @keydown.left.prevent="selectedItem === item.id && emit('move', item.id, -1)" @keydown.right.prevent="selectedItem === item.id && emit('move', item.id, 1)" @keydown.esc.stop="emit('select', null)">
+              <RobotFace v-if="item.id === 'face'" class="size-8 shrink-0" />
+              <component :is="weatherIcon" v-if="item.id === 'weather' && settings.prefs.compactWeatherIcon && weatherIcon" class="size-4 shrink-0" aria-hidden="true" />
+              <span v-if="item.id !== 'face'" class="truncate font-bold tabular-nums" :class="['time', 'date', 'weekday'].includes(item.id) ? 'text-base' : 'text-xs'">{{ itemText(item.id) }}</span>
+            </Button>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem @select="emit('align', item.id, 'left')">居左</ContextMenuItem>
+            <ContextMenuItem @select="emit('align', item.id, 'center')">居中</ContextMenuItem>
+            <ContextMenuItem @select="emit('align', item.id, 'right')">居右</ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+        <div v-else class="absolute top-0 flex h-full min-w-0 items-center justify-center gap-1" :style="{ left: `${item.left / layoutWidth * 100}%`, width: `${item.width / layoutWidth * 100}%` }">
           <RobotFace v-if="item.id === 'face'" class="size-8 shrink-0" />
           <component :is="weatherIcon" v-if="item.id === 'weather' && settings.prefs.compactWeatherIcon && weatherIcon" class="size-4 shrink-0" aria-hidden="true" />
           <span v-if="item.id !== 'face'" class="truncate font-bold tabular-nums" :class="['time', 'date', 'weekday'].includes(item.id) ? 'text-base' : 'text-xs'" :title="item.id === 'weather' ? weatherTitle : itemText(item.id)">{{ itemText(item.id) }}</span>

@@ -19,9 +19,9 @@ const remainText = computed(() => fmt(reminders.remainingMs('eyecare')))
 <template>
   <!-- 护眼提醒：20-20-20 法则 -->
   <Card class="h-full gap-0 bg-emerald-500/5 py-0 shadow-none">
-    <CardContent class="flex h-full items-center gap-4 p-3">
-      <div class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-2xl" aria-hidden="true">👀</div>
-      <div class="flex min-w-0 flex-1 flex-col items-start gap-1.5">
+    <CardContent class="flex h-full items-stretch gap-4 p-2">
+      <div class="flex h-full w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-2xl" aria-hidden="true">👀</div>
+      <div class="flex min-h-0 min-w-0 flex-1 flex-col items-start justify-between gap-1">
         <p class="text-xs text-muted-foreground">距下次远眺提醒 · 每 {{ reminders.minutesOf('eyecare') }} 分钟</p>
         <p class="text-2xl font-semibold text-emerald-600 tabular-nums">{{ remainText }}</p>
         <Button size="sm" class="h-8 text-xs" @click="reminders.reset('eyecare')">我刚看完远处了</Button>

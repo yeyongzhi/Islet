@@ -17,6 +17,8 @@ export const useIslandStore = defineStore('island', () => {
 
   /** 灵动岛是否处于展开状态 */
   const expanded = ref(false)
+  /** 通知气泡可有独立窗口尺寸，但不改变 WebView 的面板绘制尺寸。 */
+  const windowSizeOverride = ref<{ w: number; h: number } | null>(null)
 
   const timeText = computed(() => {
     const h = now.value.getHours().toString().padStart(2, '0')
@@ -31,22 +33,26 @@ export const useIslandStore = defineStore('island', () => {
   })
 
   /** 切换展开状态，并按当前停靠边通知 Tauri 调整窗口；浏览器开发环境下静默降级 */
-  async function setExpanded(value: boolean, sizeOverride?: { w: number; h: number }) {
-    if (expanded.value === value) return
+  async function setExpanded(value: boolean, sizeOverride?: { w: number; h: number }, compactWidthOverride?: number) {
+    const nextOverride = value ? sizeOverride ?? null : null
+    if (expanded.value === value && windowSizeOverride.value?.w === nextOverride?.w && windowSizeOverride.value?.h === nextOverride?.h) return
+    windowSizeOverride.value = nextOverride
     expanded.value = value
     const size = PANEL_SIZES[settings.prefs.panelSize] ?? PANEL_SIZES.medium
     await invoke('set_island_state', {
       edge: settings.prefs.islandEdge,
       expanded: value,
       offset: settings.prefs.islandOffset,
-      compactWidth: compactWidth(settings.prefs.compactItems, settings.prefs),
+      compactWidth: compactWidthOverride ?? compactWidth(settings.prefs.compactItems, settings.prefs),
       panelWidth: sizeOverride?.w ?? size.w,
       edgeGap: settings.prefs.compactStyle === 'notch' || settings.prefs.edgeAttached ? 0 : 8,
       panelHeight: sizeOverride?.h ?? size.h,
+      surfaceWidth: size.w,
+      surfaceHeight: size.h,
     }).catch(() => {
       // 非 Tauri 环境（浏览器直接访问）没有窗口命令
     })
   }
 
-  return { now, expanded, timeText, dateText, setExpanded }
+  return { now, expanded, windowSizeOverride, timeText, dateText, setExpanded }
 })

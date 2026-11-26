@@ -51,7 +51,7 @@ function toggle() {
 
     <!-- 播放中 / 有会话 -->
     <template v-else>
-      <div class="relative flex h-full w-full items-center gap-4">
+      <div class="relative flex h-full w-full items-stretch gap-4">
         <!-- 左：专辑封面（加载失败回退占位图标） -->
         <div class="relative aspect-square h-full max-h-36 max-w-[45%] shrink-0 overflow-hidden rounded-xl bg-primary">
           <img v-if="music.thumbnail" :src="music.thumbnail" class="absolute inset-0 size-full object-cover" alt="" @error="music.thumbnail = null" />
@@ -59,7 +59,7 @@ function toggle() {
         </div>
 
         <!-- 右：曲名 + 进度 + 控制 -->
-        <div class="flex min-w-0 flex-1 flex-col gap-2.5">
+        <div class="flex min-h-0 min-w-0 flex-1 flex-col justify-between gap-1">
           <div class="min-w-0">
             <p class="truncate text-lg font-semibold leading-tight" :title="music.state!.title">{{ music.state!.title }}</p>
             <p class="mt-1 truncate text-xs text-muted-foreground">

@@ -5,7 +5,11 @@ type LayoutOptions = { compactShowSeconds: boolean; compactWeatherIcon: boolean;
 function itemWidth(id: CompactItem, options?: LayoutOptions) {
   if (id === 'time' && options?.compactShowSeconds === false) return 58
   if (id === 'weather' && options?.compactWeatherIcon) return 64
-  if (id === 'date' && options?.compactDateFormat.startsWith('YYYY')) return 104
+  if (id === 'date') {
+    if (options?.compactDateFormat.startsWith('YYYY')) return 104
+    if (options?.compactDateFormat === 'M/D') return 40
+    return 58
+  }
   return SIZES[id]
 }
 export function compactWidth(items: CompactItem[], options?: LayoutOptions) {
@@ -46,8 +50,9 @@ export function moveCompactItem(items: CompactItem[], positions: Partial<Record<
   const moving = current.find(item => item.id === id)
   if (!moving) return null
   const others = current.filter(item => item.id !== id)
-  const center = desiredLeft + moving.width / 2
-  const index = others.findIndex(item => center < item.left + item.width / 2)
+  // 以移动方向上的边缘跨过邻项中心为换位条件，宽元素也能移到窄元素之前。
+  const threshold = desiredLeft < moving.left ? desiredLeft : desiredLeft > moving.left ? desiredLeft + moving.width : desiredLeft + moving.width / 2
+  const index = others.findIndex(item => threshold < item.left + item.width / 2)
   const insertion = index < 0 ? others.length : index
   const arranged = [...others.slice(0, insertion), { ...moving, left: desiredLeft }, ...others.slice(insertion)]
   const leftBound = HORIZONTAL_INSET
@@ -61,5 +66,29 @@ export function moveCompactItem(items: CompactItem[], positions: Partial<Record<
   for (let i = insertion + 1; i < arranged.length; i++) {
     arranged[i]!.left = Math.max(arranged[i]!.left, arranged[i - 1]!.left + arranged[i - 1]!.width + GAP)
   }
+  return { items: arranged.map(item => item.id), positions: Object.fromEntries(arranged.map(item => [item.id, item.left])) as Partial<Record<CompactItem, number>> }
+}
+
+/** 在不重叠的前提下，将指定内容尽可能对齐到胶囊左侧、中央或右侧。 */
+export function alignCompactItem(items: CompactItem[], positions: Partial<Record<CompactItem, number>>, id: CompactItem, alignment: 'left' | 'center' | 'right', options?: LayoutOptions) {
+  const layout = compactLayout(items, positions, options)
+  const currentIndex = layout.findIndex(item => item.id === id)
+  const selected = layout[currentIndex]
+  if (!selected) return null
+  const others = layout.filter(item => item.id !== id)
+  const width = compactWidth(items, options)
+  const target = alignment === 'left' ? HORIZONTAL_INSET : alignment === 'right' ? width - HORIZONTAL_INSET - selected.width : (width - selected.width) / 2
+  let best: { insertion: number; left: number; error: number } | undefined
+  for (let insertion = 0; insertion <= others.length; insertion++) {
+    const before = others.slice(0, insertion).reduce((n, item) => n + item.width + GAP, HORIZONTAL_INSET)
+    const after = others.slice(insertion).reduce((n, item) => n + item.width + GAP, 0)
+    const left = Math.max(before, Math.min(width - HORIZONTAL_INSET - after - selected.width, target))
+    const error = Math.abs(left - target)
+    if (!best || error < best.error || (error === best.error && Math.abs(insertion - currentIndex) < Math.abs(best.insertion - currentIndex))) best = { insertion, left, error }
+  }
+  if (!best) return null
+  const arranged = [...others.slice(0, best.insertion), { ...selected, left: best.left }, ...others.slice(best.insertion)]
+  for (let i = best.insertion - 1; i >= 0; i--) arranged[i]!.left = arranged[i + 1]!.left - GAP - arranged[i]!.width
+  for (let i = best.insertion + 1; i < arranged.length; i++) arranged[i]!.left = arranged[i - 1]!.left + arranged[i - 1]!.width + GAP
   return { items: arranged.map(item => item.id), positions: Object.fromEntries(arranged.map(item => [item.id, item.left])) as Partial<Record<CompactItem, number>> }
 }

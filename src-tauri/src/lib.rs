@@ -114,8 +114,8 @@ struct AppState {
     restore_hotkey: AtomicBool,
     /// 常驻 sysinfo 实例：CPU 占用需要跨调用刷新才能得到增量
     system: std::sync::Mutex<sysinfo::System>,
-    /// 网速计算：上次快照（Networks 实例、时间戳、累计字节数）
-    net: std::sync::Mutex<(sysinfo::Networks, std::time::Instant, u64, u64)>,
+    /// 网速计算：上次快照（Networks、时间戳、累计字节数、是否已建立基线）
+    net: std::sync::Mutex<(sysinfo::Networks, std::time::Instant, u64, u64, bool)>,
 }
 
 // 项目沿用 beta1、beta2 命名；比较时按数字排序，避免 beta10 排在 beta3 之前。
@@ -242,29 +242,164 @@ fn get_system_stats(state: State<'_, AppState>) -> Result<SystemStatsOut, String
     })
 }
 
+fn network_rates(down: u64, up: u64, previous_down: u64, previous_up: u64, elapsed: f64, primed: bool) -> Option<(u64, u64)> {
+    if !primed || elapsed > 5.0 { return None; }
+    let seconds = elapsed.max(0.5);
+    Some(((down.saturating_sub(previous_down) as f64 / seconds / 1024.0).round() as u64,
+          (up.saturating_sub(previous_up) as f64 / seconds / 1024.0).round() as u64))
+}
+
 /// 实时网速：基于上次快照的字节增量（面板每秒轮询）
 #[tauri::command]
 fn get_network_speed(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
     let mut guard = state.net.lock().map_err(|e| e.to_string())?;
     guard.0.refresh(true);
     let now = std::time::Instant::now();
-    let elapsed = now.duration_since(guard.1).as_secs_f64().max(0.5);
+    let elapsed = now.duration_since(guard.1).as_secs_f64();
     let mut down = 0u64;
     let mut up = 0u64;
     for (_, data) in guard.0.iter() {
         down += data.total_received();
         up += data.total_transmitted();
     }
-    let down_delta = down.saturating_sub(guard.2);
-    let up_delta = up.saturating_sub(guard.3);
+    // 首次采样或长时间未打开面板时只建立基线，不把累计流量误报成实时网速。
+    let rates = network_rates(down, up, guard.2, guard.3, elapsed, guard.4);
     let speed = serde_json::json!({
-        "down_kbps": (down_delta as f64 / elapsed / 1024.0).round() as u64,
-        "up_kbps": (up_delta as f64 / elapsed / 1024.0).round() as u64,
+        "down_kbps": rates.map(|rate| rate.0),
+        "up_kbps": rates.map(|rate| rate.1),
     });
     guard.1 = now;
     guard.2 = down;
     guard.3 = up;
+    guard.4 = true;
     Ok(speed)
+}
+
+#[tauri::command]
+fn get_network_connection() -> Result<serde_json::Value, String> {
+    use windows::Networking::Connectivity::{NetworkConnectivityLevel, NetworkInformation};
+    let profile = match NetworkInformation::GetInternetConnectionProfile() {
+        Ok(profile) => Some(profile),
+        Err(_) => {
+            let profiles = NetworkInformation::GetConnectionProfiles().map_err(|e| e.to_string())?;
+            profiles.into_iter().find(|profile| profile.GetNetworkConnectivityLevel().is_ok_and(|level| level != NetworkConnectivityLevel::None))
+        }
+    };
+    let Some(profile) = profile else { return Ok(serde_json::json!({"connected": false})); };
+    let level = profile.GetNetworkConnectivityLevel().map_err(|e| e.to_string())?;
+    let wifi = profile.IsWlanConnectionProfile().unwrap_or(false);
+    let name = if wifi {
+        profile.WlanConnectionProfileDetails().and_then(|details| details.GetConnectedSsid()).or_else(|_| profile.ProfileName()).ok()
+    } else { profile.ProfileName().ok() };
+    let signal = if wifi { profile.GetSignalBars().ok().and_then(|value| value.Value().ok()) } else { None };
+    Ok(serde_json::json!({
+        "connected": true,
+        "internet": level == NetworkConnectivityLevel::InternetAccess,
+        "wifi": wifi,
+        "name": name.map(|s| s.to_string()),
+        "signal": signal,
+    }))
+}
+
+#[tauri::command]
+fn get_power_state() -> Result<serde_json::Value, String> {
+    use windows::Win32::System::Power::{GetSystemPowerStatus, PowerGetActiveScheme, PowerReadFriendlyName, SYSTEM_POWER_STATUS};
+    use windows::Win32::Foundation::{HLOCAL, LocalFree};
+    let mut status = SYSTEM_POWER_STATUS::default();
+    unsafe { GetSystemPowerStatus(&mut status) }.map_err(|e| e.to_string())?;
+    let has_battery = if status.BatteryFlag == 255 { if status.BatteryLifePercent <= 100 { Some(true) } else { None } } else { Some((status.BatteryFlag & 128) == 0) };
+    let plan = unsafe {
+        let mut guid = std::ptr::null_mut();
+        if PowerGetActiveScheme(None, &mut guid).is_ok() && !guid.is_null() {
+            let mut bytes = 0u32;
+            let _ = PowerReadFriendlyName(None, Some(guid), None, None, None, &mut bytes);
+            let result = if bytes > 0 && bytes <= 4096 {
+                let mut buffer = vec![0u16; (bytes as usize + 1) / 2];
+                if PowerReadFriendlyName(None, Some(guid), None, None, Some(buffer.as_mut_ptr() as *mut u8), &mut bytes).is_ok() {
+                    let end = buffer.iter().position(|&c| c == 0).unwrap_or(buffer.len());
+                    Some(String::from_utf16_lossy(&buffer[..end]))
+                } else { None }
+            } else { None };
+            let _ = LocalFree(Some(HLOCAL(guid.cast())));
+            result
+        } else { None }
+    };
+    Ok(serde_json::json!({
+        "hasBattery": has_battery,
+        "percent": if has_battery == Some(true) && status.BatteryLifePercent <= 100 { Some(status.BatteryLifePercent) } else { None },
+        "ac": match status.ACLineStatus { 0 => Some(false), 1 => Some(true), _ => None },
+        "charging": if has_battery == Some(true) && status.BatteryFlag != 255 { Some((status.BatteryFlag & 8) != 0) } else { None },
+        "remainingSeconds": if has_battery == Some(true) && status.BatteryLifeTime != u32::MAX { Some(status.BatteryLifeTime) } else { None },
+        "batterySaver": status.SystemStatusFlag == 1,
+        "powerPlan": plan,
+    }))
+}
+
+fn with_default_audio<T>(operation: impl FnOnce(&windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume) -> windows::core::Result<T>) -> Result<T, String> {
+    use windows::Win32::Media::Audio::{Endpoints::IAudioEndpointVolume, IMMDeviceEnumerator, MMDeviceEnumerator, eMultimedia, eRender};
+    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_ALL, COINIT_MULTITHREADED};
+    unsafe {
+        CoInitializeEx(None, COINIT_MULTITHREADED).ok().map_err(|e| e.to_string())?;
+        struct ComGuard;
+        impl Drop for ComGuard { fn drop(&mut self) { unsafe { CoUninitialize() } } }
+        let _guard = ComGuard;
+        let enumerator: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).map_err(|e| e.to_string())?;
+        let device = enumerator.GetDefaultAudioEndpoint(eRender, eMultimedia).map_err(|e| e.to_string())?;
+        let volume: IAudioEndpointVolume = device.Activate(CLSCTX_ALL, None).map_err(|e| e.to_string())?;
+        operation(&volume).map_err(|e| e.to_string())
+    }
+}
+
+#[cfg(test)]
+mod system_panel_tests {
+    use super::*;
+
+    #[test]
+    fn network_speed_uses_fresh_deltas() {
+        assert_eq!(network_rates(10000, 5000, 0, 0, 1.0, false), None);
+        assert_eq!(network_rates(10000, 5000, 0, 0, 6.0, true), None);
+        assert_eq!(network_rates(3072, 2048, 1024, 1024, 1.0, true), Some((2, 1)));
+        assert_eq!(network_rates(100, 100, 1024, 1024, 1.0, true), Some((0, 0)));
+    }
+
+    #[test]
+    fn power_state_has_consistent_values() {
+        let state = get_power_state().expect("应能读取 Windows 电源状态");
+        if let Some(percent) = state["percent"].as_u64() { assert!(percent <= 100); }
+        if state["hasBattery"] == false { assert!(state["percent"].is_null()); }
+    }
+
+    #[test]
+    fn network_state_reports_connection() {
+        let state = get_network_connection().expect("应能读取 Windows 网络状态");
+        assert!(state["connected"].is_boolean());
+        if state["connected"] == true { assert!(state["internet"].is_boolean()); }
+    }
+
+    #[test]
+    fn default_output_volume_is_in_range_when_available() {
+        match with_default_audio(|volume| unsafe { volume.GetMasterVolumeLevelScalar() }) {
+            Ok(value) => { assert!((0.0..=1.0).contains(&value)); println!("默认输出音量读取成功"); }
+            Err(_) => println!("当前没有可读取的默认音频输出设备，已验证错误分支"),
+        }
+    }
+}
+
+#[tauri::command]
+async fn get_output_volume() -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(|| with_default_audio(|volume| unsafe {
+        Ok(serde_json::json!({ "percent": (volume.GetMasterVolumeLevelScalar()? * 100.0).round() as u8, "muted": volume.GetMute()?.as_bool() }))
+    })).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn set_output_volume(percent: Option<u8>, muted: Option<bool>) -> Result<(), String> {
+    if percent.is_some_and(|value| value > 100) { return Err("音量必须在 0 到 100 之间".into()); }
+    tauri::async_runtime::spawn_blocking(move || with_default_audio(|volume| unsafe {
+        if let Some(value) = percent { volume.SetMasterVolumeLevelScalar(value as f32 / 100.0, std::ptr::null())?; }
+        if let Some(value) = muted { volume.SetMute(value, std::ptr::null())?; }
+        Ok(())
+    })).await.map_err(|e| e.to_string())?
 }
 
 #[derive(Serialize)]
@@ -494,6 +629,35 @@ fn clamp_offset(edge: &str, offset: f64, screen: (f64, f64), pill: (f64, f64)) -
     }
 }
 
+fn island_surface_pixels(viewport: (f64, f64), horizontal_compact: f64, frame: (f64, f64), scale: f64) -> (i32, i32) {
+    (
+        (viewport.0.max(horizontal_compact).max(frame.0) * scale).round() as i32,
+        (viewport.1.max(DOCK_STRIP_HEIGHT).max(frame.1) * scale).round() as i32,
+    )
+}
+
+#[cfg(test)]
+mod island_surface_tests {
+    use super::island_surface_pixels;
+
+    #[test]
+    fn surface_stays_fixed_across_panel_pill_and_side_notification() {
+        for scale in [1.0, 1.25, 1.5] {
+            let panel = (400.0, 216.0);
+            let expected = island_surface_pixels(panel, 322.0, panel, scale);
+            assert_eq!(expected, island_surface_pixels(panel, 322.0, (322.0, 40.0), scale));
+            assert_eq!(expected, island_surface_pixels(panel, 322.0, (112.0, 220.0), scale));
+            assert_eq!(expected, island_surface_pixels(panel, 322.0, (220.0, 64.0), scale));
+        }
+    }
+
+    #[test]
+    fn surface_accommodates_a_pill_wider_than_the_panel() {
+        assert_eq!(island_surface_pixels((360.0, 196.0), 450.0, (450.0, 40.0), 1.0), (450, 220));
+        assert_eq!(island_surface_pixels((360.0, 196.0), 450.0, (360.0, 196.0), 1.0), (450, 220));
+    }
+}
+
 /// 应用灵动岛布局：按停靠边与展开状态计算窗口尺寸与位置并应用
 /// panel 为展开态尺寸（可选，来自前端面板尺寸偏好）；None 时使用默认值
 /// gap 为距屏幕边缘的间距（贴边展示为 0，悬浮为 EDGE_MARGIN）
@@ -503,11 +667,12 @@ fn apply_layout(
     expanded: bool,
     offset: f64,
     panel: Option<(f64, f64)>,
+    surface: Option<(f64, f64)>,
     compact_width: Option<f64>,
     gap: f64,
-) -> Result<(), String> {
+) -> Result<std::sync::mpsc::Receiver<Result<(), String>>, String> {
     let Some((sw, sh, scale)) = screen_metrics(window) else {
-        return Ok(());
+        return Err("无法获取灵动岛所在显示器信息".into());
     };
     let screen = (sw, sh);
     let compact = if edge == "top" || edge == "bottom" {
@@ -532,15 +697,57 @@ fn apply_layout(
     // 同一次原生调用完成位置和尺寸更新，避免透明窗口在两次更新之间闪现。
     let (origin_x, origin_y) = screen_origin(window);
     let hwnd = window.hwnd().map_err(|e| e.to_string())?;
-    unsafe {
-        windows::Win32::UI::WindowsAndMessaging::SetWindowPos(
-            windows::Win32::Foundation::HWND(hwnd.0 as _), None,
-            origin_x + (x * scale).round() as i32, origin_y + (y * scale).round() as i32,
-            (size.0 * scale).round() as i32, (size.1 * scale).round() as i32,
-            windows::Win32::UI::WindowsAndMessaging::SWP_NOACTIVATE | windows::Win32::UI::WindowsAndMessaging::SWP_NOZORDER,
-        ).map_err(|e| e.to_string())?;
-    }
-    Ok(())
+    let hwnd_value = hwnd.0 as isize;
+    let (px, py) = (origin_x + (x * scale).round() as i32, origin_y + (y * scale).round() as i32);
+    let (width, height) = ((size.0 * scale).round() as i32, (size.1 * scale).round() as i32);
+    let viewport = surface.or(panel).unwrap_or((EXPANDED_WIDTH, EXPANDED_HEIGHT));
+    // 覆盖横向胶囊和侧边长条，即使切换停靠边也不必重新调整 WebView 大小。
+    let horizontal_compact = compact_width.unwrap_or(PILL_WIDTH).clamp(80.0, sw);
+    let (surface_w, surface_h) = island_surface_pixels(viewport, horizontal_compact, size, scale);
+    let (child_x, child_y) = match edge {
+        "top" => ((width - surface_w) / 2, 0),
+        "bottom" => ((width - surface_w) / 2, height - surface_h),
+        "left" => (0, (height - surface_h) / 2),
+        _ => (width - surface_w, (height - surface_h) / 2),
+    };
+    // 外层窗口依旧切换实际尺寸；WebView 保持面板大小并由父窗口裁剪。
+    let (completed, completion) = std::sync::mpsc::sync_channel(1);
+    window.with_webview(move |webview| unsafe {
+        use windows::Win32::Foundation::{HWND, RECT};
+        use windows::Win32::UI::WindowsAndMessaging::{GetClientRect, GetWindowRect, SetWindowPos, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER};
+        let result = (|| -> windows::core::Result<()> {
+            let controller = webview.controller();
+            let mut container = HWND::default();
+            controller.ParentWindow(&mut container)?;
+            let native = HWND(hwnd_value as _);
+            let mut current = RECT::default();
+            GetWindowRect(native, &mut current)?;
+            if current.left != px || current.top != py || current.right - current.left != width || current.bottom - current.top != height {
+                SetWindowPos(native, None, px, py, width, height, SWP_NOACTIVATE | SWP_NOZORDER)?;
+            }
+            let mut old = RECT::default();
+            GetClientRect(container, &mut old)?;
+            let size_changed = old.right - old.left != surface_w || old.bottom - old.top != surface_h;
+            let flags = SWP_NOACTIVATE | SWP_NOZORDER | if size_changed { Default::default() } else { SWP_NOSIZE };
+            SetWindowPos(container, None, child_x, child_y, surface_w, surface_h, flags)?;
+            if size_changed {
+                controller.SetBounds(RECT { left: 0, top: 0, right: surface_w, bottom: surface_h })?;
+            }
+            Ok(())
+        })();
+        let result = result.map_err(|error| format!("灵动岛布局更新失败: {error}"));
+        if let Err(error) = &result { log::error!("{error}"); }
+        let _ = completed.send(result);
+    }).map_err(|e| e.to_string())?;
+    Ok(completion)
+}
+
+/// 在后台等待 UI 线程完成布局，不阻塞窗口消息循环。
+async fn wait_for_layout(completion: std::sync::mpsc::Receiver<Result<(), String>>) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        completion.recv_timeout(std::time::Duration::from_secs(5))
+            .map_err(|error| format!("等待灵动岛布局完成失败: {error}"))?
+    }).await.map_err(|error| error.to_string())?
 }
 
 /// 枚举 Windows 已安装的字体族（包含用户级安装的字体）。
@@ -576,30 +783,34 @@ fn list_system_fonts() -> Result<Vec<String>, String> {
 
 /// 设置灵动岛布局（展开/收起 + 停靠边 + 沿边偏移 + 可选面板尺寸 + 边缘间距）
 #[tauri::command]
-fn set_island_state(
+async fn set_island_state(
     window: WebviewWindow,
     edge: String,
     expanded: bool,
     offset: f64,
     panel_width: Option<f64>,
     panel_height: Option<f64>,
+    surface_width: Option<f64>,
+    surface_height: Option<f64>,
     compact_width: Option<f64>,
     edge_gap: Option<f64>,
 ) -> Result<(), String> {
-    apply_layout(
+    let completion = apply_layout(
         &window,
         &edge,
         expanded,
         offset,
         panel_width.zip(panel_height),
+        surface_width.zip(surface_height),
         compact_width,
         edge_gap.unwrap_or(EDGE_MARGIN),
-    )
+    )?;
+    wait_for_layout(completion).await
 }
 
-/// 拖动结束后的吸附计算：返回 {edge, offset}，并立即应用收起态布局
+/// 拖动结束后的吸附计算：返回 {edge, offset}，并应用当前尺寸的布局。
 #[tauri::command]
-fn finish_drag(window: WebviewWindow, current_edge: String, edge_gap: Option<f64>) -> Result<serde_json::Value, String> {
+async fn finish_drag(window: WebviewWindow, current_edge: String, edge_gap: Option<f64>, expanded: bool, panel_width: Option<f64>, panel_height: Option<f64>, surface_width: Option<f64>, surface_height: Option<f64>, compact_width: Option<f64>) -> Result<serde_json::Value, String> {
     let Some((sw, sh, scale)) = screen_metrics(&window) else {
         return Err("无法获取屏幕信息".into());
     };
@@ -657,11 +868,12 @@ fn finish_drag(window: WebviewWindow, current_edge: String, edge_gap: Option<f64
         .map(|v| v["compactStyle"].as_str() == Some("notch") || v["edgeAttached"].as_bool().unwrap_or(false))
         .unwrap_or(false);
     let gap = edge_gap.unwrap_or(if attached { 0.0 } else { EDGE_MARGIN });
-    apply_layout(&window, &edge, false, offset, None, None, gap)?;
+    let completion = apply_layout(&window, &edge, expanded, offset, panel_width.zip(panel_height), surface_width.zip(surface_height), compact_width, gap)?;
     log::info!(
         "[drag] finish_drag: edge={edge} offset={offset} pos=({px:.0},{py:.0}) size=({pw:.0},{ph:.0}) dists=(t:{d_top:.0},b:{d_bottom:.0},l:{d_left:.0},r:{d_right:.0})"
     );
     let monitor = window.current_monitor().ok().flatten().and_then(|m| m.name().cloned());
+    wait_for_layout(completion).await?;
     Ok(serde_json::json!({ "edge": edge, "offset": offset, "monitor": monitor }))
 }
 
@@ -733,7 +945,7 @@ fn select_island_monitor(app: AppHandle, name: String) -> Result<(), String> {
 
 /// 设置页实时调整岛窗口布局（直接作用于 main 窗口，绕过偏好广播延迟）
 #[tauri::command]
-fn apply_island_layout(
+async fn apply_island_layout(
     app: AppHandle,
     edge: String,
     expanded: bool,
@@ -746,15 +958,17 @@ fn apply_island_layout(
     let Some(window) = app.get_webview_window("main") else {
         return Ok(());
     };
-    apply_layout(
+    let completion = apply_layout(
         &window,
         &edge,
         expanded,
         offset,
         panel_width.zip(panel_height),
+        None,
         compact_width,
         edge_gap.unwrap_or(EDGE_MARGIN),
-    )
+    )?;
+    wait_for_layout(completion).await
 }
 
 /// 退出应用（托盘菜单与面板设置菜单共用）
@@ -1277,6 +1491,7 @@ pub fn run() {
                 std::time::Instant::now(),
                 0,
                 0,
+                false,
             )),
         })
         .invoke_handler(tauri::generate_handler![
@@ -1312,6 +1527,10 @@ pub fn run() {
             start_files_drag,
             get_system_stats,
             get_network_speed,
+            get_network_connection,
+            get_power_state,
+            get_output_volume,
+            set_output_volume,
             get_disks,
             get_system_info,
             load_panel_data,
@@ -1335,6 +1554,13 @@ pub fn run() {
             let window = app
                 .get_webview_window("main")
                 .expect("main window must exist");
+            unsafe {
+                windows::Win32::UI::WindowsAndMessaging::SetPropW(
+                    windows::Win32::Foundation::HWND(window.hwnd()?.0 as _),
+                    windows::core::w!("IsletFixedWebView"),
+                    Some(windows::Win32::Foundation::HANDLE(1usize as _)),
+                )?;
+            }
             let mut edge = "top".to_string();
             let mut offset = f64::MAX;
             let mut edge_attached = false;
@@ -1352,7 +1578,7 @@ pub fn run() {
             } else {
                 offset
             };
-            apply_layout(&window, &edge, false, initial_offset, None, None, initial_gap)?;
+            apply_layout(&window, &edge, false, initial_offset, None, None, None, initial_gap)?;
 
             // 启动系统事件监听（输入法/网络/电池，通知中心数据源）
             start_system_monitors(app.handle().clone());

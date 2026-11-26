@@ -11,19 +11,19 @@ const waterRemaining = computed(() => Math.max(0, settings.prefs.waterGoal - hea
 const glassClip = `water-glass-${useId()}`
 </script>
 <template>
-  <div class="flex h-full min-h-0 items-center justify-center gap-3 px-2">
-    <div class="order-2 flex min-w-0 flex-col gap-3">
+  <div class="flex h-full min-h-0 items-stretch gap-3">
+    <div class="order-2 flex min-h-0 min-w-0 flex-1 flex-col justify-between gap-2">
       <p class="text-base font-semibold">今日饮水</p>
       <div class="flex flex-wrap items-center gap-1.5">
         <Button size="sm" class="h-7 px-2 text-xs" aria-label="喝了一杯水" @click="health.addWater()">+1</Button>
         <Button variant="secondary" size="sm" class="h-7 px-2 text-xs" aria-label="减一杯（记错时撤销）" @click="health.removeWater()">-1</Button>
       </div>
     </div>
-    <div class="order-3 ml-9 flex shrink-0 flex-col items-start gap-2">
+    <div class="order-3 flex shrink-0 flex-col items-start justify-between gap-2">
       <p class="whitespace-nowrap text-sm text-muted-foreground tabular-nums"><span class="text-3xl font-semibold text-foreground">{{ health.counters.water }}</span> / {{ settings.prefs.waterGoal }} 杯</p>
       <p class="whitespace-nowrap text-xs text-muted-foreground">{{ waterRemaining ? `还差 ${waterRemaining} 杯` : '今日目标已达成' }}</p>
     </div>
-    <svg class="order-1 size-28 shrink-0" viewBox="0 0 100 100" role="img" :aria-label="`每日饮水目标已完成 ${waterPct}%`">
+    <svg class="order-1 h-full max-h-28 w-24 shrink-0" viewBox="0 0 100 100" role="img" :aria-label="`每日饮水目标已完成 ${waterPct}%`">
       <defs>
         <clipPath :id="glassClip"><path d="M25 18 L30 80 Q31 88 39 88 H61 Q69 88 70 80 L75 18 Z" /></clipPath>
       </defs>

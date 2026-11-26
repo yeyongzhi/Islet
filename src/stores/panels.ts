@@ -1,5 +1,6 @@
 import {
   ArrowDownUp,
+  BatteryCharging,
   Briefcase,
   CalendarDays,
   CalendarX2,
@@ -9,7 +10,6 @@ import {
   Cpu,
   Droplets,
   FolderInput,
-  Gauge,
   HardDrive,
   Images,
   Eye,
@@ -18,6 +18,8 @@ import {
   Timer,
   Toilet,
   TrendingUp,
+  Volume2,
+  Wifi,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
 import { computed, ref, watch } from 'vue'
@@ -46,6 +48,9 @@ export type PanelId =
   | 'toilet'
   | 'eyecare'
   | 'gallery'
+  | 'timer'
+  | 'volume'
+  | 'power'
 
 export type PanelCategory = '信息' | '工具' | '健康'
 
@@ -79,7 +84,7 @@ export const PANELS: PanelMeta[] = [
   { id: 'rates', label: '汇率', icon: ArrowDownUp, category: '信息', desc: '常用货币实时汇率' },
   { id: 'weather', label: '天气', icon: CloudSun, category: '信息', desc: '当前天气与未来几天预报' },
   { id: 'monitor', label: '系统监控', icon: Cpu, category: '信息', desc: 'CPU 与内存占用' },
-  { id: 'netspeed', label: '网速监控', icon: Gauge, category: '信息', desc: '实时上传/下载速度' },
+  { id: 'netspeed', label: '网络连接', icon: Wifi, category: '信息', desc: '网络连接状态与实时上传、下载速度' },
   { id: 'disks', label: '磁盘占用', icon: HardDrive, category: '信息', desc: '各磁盘剩余空间进度条' },
   { id: 'music', label: '音乐', icon: Music, category: '工具', desc: '系统播放器控制与进度' },
   { id: 'pomodoro', label: '番茄专注', icon: Timer, category: '工具', desc: '专注与休息计时' },
@@ -89,6 +94,9 @@ export const PANELS: PanelMeta[] = [
   { id: 'quickstart', label: '快速启动', icon: Rocket, category: '工具', desc: '常用应用/网址一键打开' },
   { id: 'offwork', label: '下班倒计时', icon: Briefcase, category: '工具', desc: '下班/发薪日/工龄，可自定义' },
   { id: 'sysinfo', label: '系统信息', icon: Cpu, category: '工具', desc: '开机时长与电池状态' },
+  { id: 'timer', label: '倒计时器', icon: Timer, category: '工具', desc: '自定义计时、暂停与结束提醒' },
+  { id: 'volume', label: '音量控制', icon: Volume2, category: '工具', desc: '调节系统默认输出设备音量' },
+  { id: 'power', label: '电池与电源', icon: BatteryCharging, category: '信息', desc: '电池、电源及节电状态' },
   { id: 'sedentary', label: '久坐提醒', icon: Timer, category: '工具', desc: '定时提醒起身活动，可自定义间隔' },
   { id: 'water', label: '喝水', icon: Droplets, category: '健康', desc: '每日喝水计数与目标' },
   { id: 'toilet', label: '上厕所', icon: Toilet, category: '健康', desc: '小手大手计数' },
@@ -137,6 +145,9 @@ export const PANEL_OPTIONS: Record<PanelId, PanelOptionDef[]> = {
   transfer: [],
   quickstart: [],
   gallery: [],
+  timer: [],
+  volume: [],
+  power: [],
   offwork: [
     { key: 'endTime', label: '下班时间', type: 'select', default: '18:00', options: TIME_OPTIONS },
     { key: 'payday', label: '发薪日（每月几号）', type: 'select', default: '10', options: Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: `${i + 1} 号` })) },

@@ -51,9 +51,9 @@ onBeforeUnmount(() => window.clearInterval(timer))
 <template>
   <!-- 汇率：基准货币 → 目标货币 -->
   <Card class="h-full gap-0 bg-primary/5 py-0 shadow-none">
-    <CardContent class="flex h-full items-center gap-4 p-3">
-      <div class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10"><ArrowDownUp class="size-4 text-primary" aria-hidden="true" /></div>
-      <div class="flex min-w-0 flex-1 flex-col gap-1">
+    <CardContent class="flex h-full items-stretch gap-4 p-2">
+      <div class="flex h-full w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10"><ArrowDownUp class="size-4 text-primary" aria-hidden="true" /></div>
+      <div class="flex min-h-0 min-w-0 flex-1 flex-col justify-between gap-1">
         <p class="text-xs text-muted-foreground">1 {{ fromCur }} 兑换 {{ toCur }}</p>
         <p class="truncate text-3xl font-semibold text-primary tabular-nums">{{ rate !== null ? rate.toFixed(4) : rateStatus === 'error' ? '暂不可用' : '加载中…' }}</p>
         <p v-if="rate !== null" class="text-xs text-muted-foreground">{{ fromCur === toCur ? '相同货币' : '数据日期 ' + rateDate }}{{ rateStatus === 'stale' ? ' · 缓存' : '' }}<span v-if="fetchedAt"> · 更新 {{ new Date(fetchedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) }}</span></p>

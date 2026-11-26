@@ -25,6 +25,7 @@ export type NotifyKind =
   | 'disk'
   | 'event'
   | 'water'
+  | 'timer'
 
 export interface NotifyItem {
   kind: NotifyKind
@@ -51,6 +52,7 @@ const PREF_KEYS: Record<NotifyKind, string> = {
   disk: 'notifyDisk',
   event: 'notifyEvent',
   water: 'notifyWater',
+  timer: 'notifyTimer',
 }
 
 export const useNotifyStore = defineStore('notify', () => {

@@ -11,17 +11,17 @@ onMounted(() => health.load())
 
 <template>
   <!-- 上厕所面板：左马桶标识 / 右小手大手计数（当日累计，跨天自动清零） -->
-  <div class="flex h-full items-center gap-5">
+  <div class="flex h-full min-h-0 items-stretch gap-5">
     <!-- 左：马桶标识 -->
     <div
-      class="flex size-24 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15"
+      class="flex h-full w-24 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15"
       aria-hidden="true"
     >
       <Toilet class="size-12 text-amber-500" />
     </div>
 
     <!-- 右：内容（纵向铺满，消除上下留白） -->
-    <div class="flex min-w-0 flex-1 flex-col justify-center gap-4 py-0.5">
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col justify-between gap-1">
       <div class="flex items-baseline gap-2">
         <p class="text-lg font-semibold">上厕所</p>
         <p class="text-xs text-muted-foreground">每日零点自动清零</p>

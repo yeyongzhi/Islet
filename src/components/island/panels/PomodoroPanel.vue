@@ -51,12 +51,12 @@ watch(
 
 <template>
   <!-- 番茄专注面板：顶部 Tabs / 中间时间与档位 / 底部操作 -->
-  <div class="flex h-full min-h-0 items-center justify-between gap-4 px-3 py-1">
-    <div class="flex size-24 shrink-0 items-center justify-center rounded-3xl" :class="activeMode === 'break' ? 'bg-emerald-500/15' : 'bg-primary/10'" aria-hidden="true">
+  <div class="flex h-full min-h-0 items-stretch justify-between gap-4">
+    <div class="flex h-full w-24 shrink-0 items-center justify-center rounded-3xl" :class="activeMode === 'break' ? 'bg-emerald-500/15' : 'bg-primary/10'" aria-hidden="true">
       <Coffee v-if="activeMode === 'break'" class="size-9 text-emerald-400" />
       <Briefcase v-else class="size-9 text-primary" />
     </div>
-    <div class="flex min-w-0 flex-1 flex-col items-center justify-center gap-4">
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-between gap-1">
     <!-- 顶部：专注 / 休息 -->
     <Tabs
       :model-value="activeMode"

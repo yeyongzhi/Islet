@@ -57,6 +57,7 @@ const NOTIFY_ICONS: Record<string, Component> = {
   disk: HardDrive,
   event: CalendarDays,
   water: Droplets,
+  timer: Timer,
 }
 
 /** 当前面板尺寸档位 */
@@ -116,14 +117,14 @@ async function updateFullscreen() {
       pinned.value = false
       open.value = false
       window.clearTimeout(collapseTimer)
-      collapseTimer = window.setTimeout(() => island.setExpanded(false), MORPH_DURATION_MS + 40)
+      collapseTimer = window.setTimeout(() => setIslandExpanded(false), MORPH_DURATION_MS + 40)
     }
     automaticIndicator.value = shouldIndicate
     if (mode === 'hide' && !hiddenByFullscreen) {
       window.clearTimeout(hoverTimer)
       pinned.value = false
       open.value = false
-      island.setExpanded(false)
+      setIslandExpanded(false)
       await invoke('set_island_visible', { visible: false })
       hiddenByFullscreen = true
     } else if (mode !== 'hide' && hiddenByFullscreen) {
@@ -144,6 +145,12 @@ function compactDims(): { w: number; h: number; r: number } {
     return { w: 112, h: 220, r: Math.min(20, Math.max(6, r + 4)) }
   }
   return { w: notify.current ? Math.max(220, compactWidth(settings.prefs.compactItems, settings.prefs)) : compactWidth(settings.prefs.compactItems, settings.prefs), h: 40, r: Math.min(20, Math.max(2, r + 4)) }
+}
+
+/** 原生窗口与当前胶囊外壳使用同一宽度。 */
+function setIslandExpanded(value: boolean) {
+  const width = notify.current ? Math.max(220, compactWidth(settings.prefs.compactItems, settings.prefs)) : compactWidth(settings.prefs.compactItems, settings.prefs)
+  return island.setExpanded(value, undefined, width)
 }
 
 const shellStyle = computed(() => {
@@ -222,7 +229,7 @@ async function openIsland() {
   leftWhileOpening = false
   const request = ++openRequest
   // 先完成原生窗口调整并提交一帧，再启动壳层形变，避免窗口大小与内容不同步。
-  await island.setExpanded(true)
+  await setIslandExpanded(true)
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
   // 调整原生窗口时 WebView 可能产生临时的 mouseleave，按实际屏幕坐标确认。
   if (leftWhileOpening && settings.prefs.expandMode === 'hover') {
@@ -238,7 +245,7 @@ async function openIsland() {
   }
   opening = false
   if (request !== openRequest) {
-    await island.setExpanded(false)
+    await setIslandExpanded(false)
     if (pointerInside && settings.prefs.expandMode === 'hover') void openIsland()
     return
   }
@@ -286,7 +293,7 @@ function collapseSoon() {
     }
     open.value = false
     collapseTimer = window.setTimeout(
-      () => island.setExpanded(false),
+      () => setIslandExpanded(false),
       MORPH_DURATION_MS + 40,
     )
   }, settings.prefs.leaveDelay)
@@ -326,13 +333,16 @@ function handleDragDropEvent(event: { payload: { type: string; paths?: string[] 
 
 /** 组装 set_island_state 参数（展开时附带当前面板尺寸） */
 function layoutParams(edge: string, expanded: boolean, offset: number) {
+  const frame = expanded ? island.windowSizeOverride ?? panelSize.value : panelSize.value
   return {
     edge,
     expanded,
     offset,
     compactWidth: notify.current ? Math.max(220, compactWidth(settings.prefs.compactItems, settings.prefs)) : compactWidth(settings.prefs.compactItems, settings.prefs),
-    panelWidth: panelSize.value.w,
-    panelHeight: panelSize.value.h,
+    panelWidth: frame.w,
+    panelHeight: frame.h,
+    surfaceWidth: panelSize.value.w,
+    surfaceHeight: panelSize.value.h,
     edgeGap: settings.prefs.compactStyle === 'notch' || settings.prefs.edgeAttached ? 0 : 8,
   }
 }
@@ -403,15 +413,21 @@ async function endDrag() {
   resetDrag()
   if (!moved) return
   try {
+    const frame = wasExpanded ? island.windowSizeOverride ?? panelSize.value : panelSize.value
     const res = await invoke<{ edge: string; offset: number; monitor: string | null }>('finish_drag', {
       currentEdge: settings.prefs.islandEdge,
       edgeGap: settings.prefs.compactStyle === 'notch' || settings.prefs.edgeAttached ? 0 : 8,
+      expanded: wasExpanded,
+      panelWidth: frame.w,
+      panelHeight: frame.h,
+      surfaceWidth: panelSize.value.w,
+      surfaceHeight: panelSize.value.h,
+      compactWidth: layoutParams(settings.prefs.islandEdge, wasExpanded, settings.prefs.islandOffset).compactWidth,
     })
     settings.updateIslandLayout(res.edge as IslandEdge, res.offset)
     if (res.monitor && res.monitor !== settings.prefs.monitorName) settings.set('monitorName', res.monitor)
-    // finish_drag 会收起窗口；若拖动前处于展开态则重新展开
+    // 使用吸附后的边和当前偏好再次对齐，避免拖动时临时切换绘制尺寸。
     await invoke('set_island_state', layoutParams(res.edge, wasExpanded, res.offset))
-    if (wasExpanded) island.setExpanded(true)
   } catch {
     // 非 Tauri 环境忽略
   }
@@ -436,17 +452,15 @@ watch(
   },
 )
 
-// 尺寸档位变更时若处于展开态，立即按新尺寸应用布局
+// 尺寸档位变更时更新固定的绘制尺寸。
 watch(
   () => settings.prefs.panelSize,
   () => {
-    if (island.expanded) {
-      invoke('set_island_state', layoutParams(
-        settings.prefs.islandEdge,
-        true,
-        settings.prefs.islandOffset,
-      )).catch(() => {})
-    }
+    invoke('set_island_state', layoutParams(
+      settings.prefs.islandEdge,
+      island.expanded,
+      settings.prefs.islandOffset,
+    )).catch(() => {})
   },
 )
 
@@ -476,7 +490,7 @@ onMounted(async () => {
   void useClipboardStore().init().catch(() => {})
   void useRemindersStore().start()
   unlistenManualShow = await listen('island://manual-show', () => { manuallyHidden = false; manualFullscreenOverride = true; hiddenByFullscreen = false }).catch(() => undefined)
-  unlistenManualHide = await listen('island://manual-hide', () => { manuallyHidden = true; hiddenByFullscreen = false; pinned.value = false; open.value = false; island.setExpanded(false) }).catch(() => undefined)
+  unlistenManualHide = await listen('island://manual-hide', () => { manuallyHidden = true; hiddenByFullscreen = false; pinned.value = false; open.value = false; setIslandExpanded(false) }).catch(() => undefined)
   fullscreenTimer = window.setInterval(() => { updateFullscreen().catch(() => {}) }, 1500)
 })
 

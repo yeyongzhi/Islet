@@ -42,7 +42,7 @@ const summary = computed(() => {
   <div class="flex h-full min-h-0 items-stretch gap-2">
     <div class="flex w-40 min-h-0 shrink-0 flex-col">
       <Card class="h-full min-h-0 border-border bg-muted/50">
-        <CardContent class="flex h-full flex-col justify-center gap-3 px-4 py-4">
+        <CardContent class="flex h-full flex-col justify-between gap-1 p-3">
           <div class="flex items-center gap-3">
             <component
               :is="weather.data ? CloudSun : Sun"

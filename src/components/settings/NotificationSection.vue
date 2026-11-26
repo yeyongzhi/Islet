@@ -42,6 +42,7 @@ const NOTIFY_OPTIONS = [
   { key: 'notifyBattery', icon: BatteryCharging, label: '电池状态', desc: '接通电源、低电量和充满电提醒' },
   { key: 'notifyMusic', icon: Music2, label: '音乐播放状态', desc: '播放、暂停或切换曲目时提示' },
   { key: 'notifyPomodoro', icon: Timer, label: '番茄钟提醒', desc: '专注结束、休息结束时提示' },
+  { key: 'notifyTimer', icon: Timer, label: '倒计时器提醒', desc: '倒计时结束时提示' },
   { key: 'notifySedentary', icon: Timer, label: '久坐提醒', desc: '久坐卡片到点时提示起身活动' },
   { key: 'notifyEyecare', icon: Eye, label: '护眼提醒', desc: '护眼卡片到点时提示远眺放松' },
   { key: 'notifyVolume', icon: Volume2, label: '音量变化', desc: '系统音量调节或静音切换时提示' },
@@ -55,7 +56,7 @@ type NotifyKey = (typeof NOTIFY_OPTIONS)[number]['key']
 const NOTIFY_GROUPS = [
   { label: '系统状态', keys: ['notifyIme', 'notifyCapsLock', 'notifyNumLock', 'notifyNetwork', 'notifyBattery', 'notifyVolume', 'notifyDisk'] },
   { label: '应用与媒体', keys: ['notifyClipboard', 'notifyMusic'] },
-  { label: '日程与健康', keys: ['notifyPomodoro', 'notifySedentary', 'notifyEyecare', 'notifyCountdown', 'notifyEvent', 'notifyWater'] },
+  { label: '日程与健康', keys: ['notifyPomodoro', 'notifyTimer', 'notifySedentary', 'notifyEyecare', 'notifyCountdown', 'notifyEvent', 'notifyWater'] },
 ] as const
 
 const QUIET_OVERRIDES = {

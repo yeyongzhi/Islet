@@ -19,6 +19,8 @@ docs/.vitepress/cache
 # Rust
 src-tauri/target
 src-tauri/gen/schemas
+# Cargo registry 的本地校验标记，不属于 vendored 源码
+src-tauri/vendor/wry/.cargo-ok
 
 # Editor directories and files
 .vscode/*

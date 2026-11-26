@@ -25,7 +25,7 @@ const colors = { violet: 'text-violet-500', blue: 'text-blue-500', green: 'text-
 <template>
   <!-- 倒数日：最近的目标日 + 其余列表 -->
   <Card class="h-full gap-0 bg-muted/25 py-0 shadow-none">
-  <CardContent class="flex h-full items-center gap-3 p-2">
+  <CardContent class="flex h-full items-stretch gap-3 p-2">
     <div
       class="flex h-full w-20 shrink-0 flex-col items-center justify-center rounded-xl bg-primary/10"
     >
@@ -35,7 +35,7 @@ const colors = { violet: 'text-violet-500', blue: 'text-blue-500', green: 'text-
       </p>
     </div>
 
-    <div class="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5">
       <template v-if="entries.length">
         <div
           v-for="e in entries"

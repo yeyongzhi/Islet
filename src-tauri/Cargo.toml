@@ -1,12 +1,15 @@
 [package]
 name = "islet"
-version = "0.1.0-beta.5"
+version = "0.1.0-beta.6"
 description = "Islet（灵岛）- Windows 桌面灵动岛与轻量信息工具"
 authors = ["Aurora"]
 license = ""
 repository = "https://github.com/yeyongzhi/Islet"
 edition = "2024"
 rust-version = "1.90"
+
+[patch.crates-io]
+wry = { path = "vendor/wry" }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -45,6 +48,7 @@ windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",
     "Win32_System_Power",
+    "Win32_System_Registry",
     "Win32_UI_Input_Ime",
     "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_WindowsAndMessaging",

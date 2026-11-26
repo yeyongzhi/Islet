@@ -15,7 +15,6 @@ import type { Component } from 'vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Skeleton } from '@/components/ui/skeleton'
 import { weatherText } from '@/services/openMeteo'
 import { useSettingsStore } from '@/stores/settings'
 import { useWeatherStore } from '@/stores/weather'
@@ -55,10 +54,7 @@ function weatherIcon(code: number): Component {
   <div class="flex h-full flex-col gap-2">
 
     <!-- 加载中 -->
-    <div v-if="weather.status === 'loading'" class="flex flex-1 flex-col gap-3">
-      <Skeleton class="h-16 w-full" />
-      <Skeleton v-for="i in 3" :key="i" class="h-8 w-full" />
-    </div>
+    <div v-if="weather.status === 'loading'" class="flex flex-1 items-center justify-center text-xs text-muted-foreground" role="status">加载中…</div>
 
     <!-- 加载失败 -->
     <Alert v-else-if="weather.status === 'error' && !weather.data">
@@ -72,7 +68,7 @@ function weatherIcon(code: number): Component {
     <!-- 数据就绪 -->
     <div v-else-if="weather.data" class="flex min-h-0 flex-1 gap-3">
       <!-- 左：当前天气 -->
-      <div class="relative flex w-32 shrink-0 flex-col justify-center gap-0.5 rounded-xl border border-border bg-muted/50 p-3">
+      <div class="relative flex w-32 shrink-0 flex-col justify-between gap-0.5 rounded-xl border border-border bg-muted/50 p-2">
         <Tooltip><TooltipTrigger as-child><Button variant="ghost" size="icon" class="absolute right-1 top-1 size-7" aria-label="刷新天气" @click="weather.load()"><RefreshCw class="size-4" /></Button></TooltipTrigger><TooltipContent>刷新天气</TooltipContent></Tooltip>
         <component
           :is="weatherIcon(weather.data.current.weatherCode)"
