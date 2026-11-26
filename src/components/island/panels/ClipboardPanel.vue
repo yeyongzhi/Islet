@@ -29,7 +29,7 @@ const visibleItems = computed(() => clipboard.items.filter((item) => item.text.t
 onMounted(() => clipboard.init())
 
 async function copyItem(text: string) {
-  try { await clipboard.copy(text); toast('已复制到剪贴板') }
+  try { await clipboard.copy(text) }
   catch { toast.error('复制失败，请重试') }
 }
 </script>

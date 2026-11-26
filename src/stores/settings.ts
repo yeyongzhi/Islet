@@ -9,7 +9,6 @@ export type IslandEdge = 'top' | 'left' | 'right' | 'bottom'
 export type PanelSize = 'small' | 'medium' | 'large'
 export type CompactContent = 'weather' | 'music' | 'monitor' | 'network' | 'countdown' | 'pomodoro'
 export type CompactItem = 'face' | 'time' | 'weather' | 'date' | 'weekday' | 'battery'
-export const MAX_COMPACT_ITEMS = 3
 export const COMPACT_ITEMS: { id: CompactItem; label: string }[] = [
   { id: 'face', label: '灵岛表情' }, { id: 'time', label: '时间' },
   { id: 'weather', label: '天气' }, { id: 'date', label: '日期' },
@@ -211,7 +210,7 @@ function normalizePanels(parsed: Partial<Preferences>): Partial<Preferences> {
     parsed.compactItems = ['face', 'time', 'weather']
   } else {
     const known = new Set(COMPACT_ITEMS.map((item) => item.id))
-    parsed.compactItems = [...new Set(parsed.compactItems.filter((id) => known.has(id)))].slice(0, MAX_COMPACT_ITEMS)
+    parsed.compactItems = [...new Set(parsed.compactItems.filter((id) => known.has(id)))]
   }
   if (!['smooth', 'ease-in', 'ease-out', 'ease-in-out'].includes(parsed.animationCurve ?? '')) parsed.animationCurve = 'smooth'
   if (!['hover', 'click'].includes(parsed.expandMode ?? '')) parsed.expandMode = 'hover'
@@ -380,12 +379,12 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   function setCompactPosition(id: CompactItem, left: number) {
-    prefs.value.compactPositions = { ...prefs.value.compactPositions, [id]: Math.max(0, Math.min(250, left)) }
+    prefs.value.compactPositions = { ...prefs.value.compactPositions, [id]: Math.max(0, left) }
     persist()
   }
 
   function setCompactItems(items: CompactItem[]) {
-    prefs.value.compactItems = items.slice(0, MAX_COMPACT_ITEMS)
+    prefs.value.compactItems = items
     persist()
     emit(PREFS_EVENT, JSON.stringify(prefs.value)).catch(() => {})
   }

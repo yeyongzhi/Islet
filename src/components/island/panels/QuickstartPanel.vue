@@ -13,6 +13,9 @@ quickstart.load()
 
 const items = computed(() => quickstart.data ?? [])
 
+const cacheKey = 'islet:quickstart-icons'
+let iconCache: Record<string, string> = {}
+try { iconCache = JSON.parse(localStorage.getItem(cacheKey) || '{}') } catch { /* 缓存损坏时重新读取 */ }
 const icons = ref<Record<string, string>>({})
 function shellIcon(path: string) {
   switch (path.toLowerCase()) {
@@ -24,11 +27,14 @@ function shellIcon(path: string) {
 let iconRequest = 0
 watch(items, async list => {
   const request = ++iconRequest
+  icons.value = Object.fromEntries(list.filter(item => iconCache[item.path]).map(item => [item.id, iconCache[item.path]!]))
   const results = await Promise.all(list.map(async item => {
     if (shellIcon(item.path)) return [item.id, null] as const
-    try { return [item.id, await invoke<string | null>('get_launch_icon', { path: item.path })] as const }
+    if (iconCache[item.path]) return [item.id, iconCache[item.path]] as const
+    try { const icon = await invoke<string | null>('get_launch_icon', { path: item.path }); if (icon) iconCache[item.path] = icon; return [item.id, icon] as const }
     catch { return [item.id, null] as const }
   }))
+  try { localStorage.setItem(cacheKey, JSON.stringify(iconCache)) } catch { /* 缓存不可用时仍可显示图标 */ }
   if (request === iconRequest) icons.value = Object.fromEntries(results.filter((entry): entry is readonly [string, string] => !!entry[1]))
 }, { immediate: true })
 

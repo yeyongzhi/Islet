@@ -6,6 +6,7 @@ const props = withDefaults(
   defineProps<{
     /** 展开态传 true：嘴角上扬更明显 */
     happy?: boolean
+    mood?: 'neutral' | 'happy' | 'angry' | 'sad' | 'surprised'
   }>(),
   { happy: false },
 )
@@ -15,6 +16,7 @@ const music = useMusicStore()
 // —— 眨眼 / wink 状态机（随机间隔，模拟生物感） ——
 const blinking = ref(false)
 const winking = ref(false)
+const spontaneousMood = ref<'neutral' | 'happy' | 'sad' | 'surprised'>('neutral')
 let blinkTimer: number | undefined
 let clearTimer: number | undefined
 
@@ -29,6 +31,10 @@ function closeEyes(duration: number) {
 function loop() {
   const delay = 2600 + Math.random() * 3400
   blinkTimer = window.setTimeout(() => {
+    if (!props.mood) {
+      const moods = ['neutral', 'happy', 'sad', 'surprised'] as const
+      spontaneousMood.value = moods[Math.floor(Math.random() * moods.length)]!
+    }
     closeEyes(140)
     // 15% 概率连眨两下；8% 概率来个 wink（右眼闭 + 微笑）
     const roll = Math.random()
@@ -56,9 +62,10 @@ onBeforeUnmount(() => {
   window.clearTimeout(clearTimer)
 })
 
+const currentMood = computed(() => props.mood ?? spontaneousMood.value)
 const isSmiling = computed(() => props.happy || winking.value || !!music.state?.playing)
 const mouthPath = computed(() =>
-  isSmiling.value ? 'M17 20 Q24 26.5 31 20' : 'M19 21.5 L29 21.5',
+  currentMood.value === 'sad' ? 'M18 25 Q24 19 30 25' : currentMood.value === 'angry' ? 'M19 23 L29 23' : currentMood.value === 'surprised' ? 'M24 20 a2 2 0 1 0 0.01 0' : isSmiling.value || currentMood.value === 'happy' ? 'M17 20 Q24 26.5 31 20' : 'M19 21.5 L29 21.5',
 )
 </script>
 
@@ -88,6 +95,7 @@ const mouthPath = computed(() =>
         <!-- 眼睛高光 -->
         <circle class="glint" cx="11.5" cy="11" r="1.4" />
         <circle class="glint" cx="34.5" cy="11" r="1.4" />
+        <path v-if="mood === 'angry'" class="mouth" d="M7 4 L17 7 M31 7 L41 4" />
         <path class="mouth" :d="mouthPath" />
       </g>
     </svg>

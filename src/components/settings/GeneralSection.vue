@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { compactWidth } from '@/lib/compactLayout'
 import { computed, onMounted, ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { Button } from '@/components/ui/button'
@@ -74,6 +75,7 @@ function applyOffsetPct(pct: number) {
     edge: settings.prefs.islandEdge,
     expanded: false,
     offset,
+    compactWidth: compactWidth(settings.prefs.compactItems, settings.prefs),
     panelWidth: size.w,
     panelHeight: size.h,
     edgeGap: settings.prefs.compactStyle === 'notch' || settings.prefs.edgeAttached ? 0 : 8,

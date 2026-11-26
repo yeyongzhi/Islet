@@ -11,15 +11,17 @@ import { toast } from 'vue-sonner'
 const REPOSITORY = 'https://github.com/yeyongzhi/Islet'
 const WEBSITE = 'https://yeyongzhi.github.io/Islet/'
 const CHANGELOG = `${WEBSITE}changelog`
-const version = ref('0.1.0-beta4')
+const version = ref('0.1.0-beta.5')
 const checking = ref(false)
 const updateMessage = ref('')
+const updateChangelog = ref('')
 let unlistenUpdate: UnlistenFn | undefined
 
 onMounted(async () => {
   try {
     version.value = await getVersion()
-    unlistenUpdate = await listen<{ stage: string; version?: string; message?: string; downloaded?: number; total?: number }>('island://update-progress', ({ payload }) => {
+    unlistenUpdate = await listen<{ stage: string; version?: string; message?: string; downloaded?: number; total?: number; changelog?: string }>('island://update-progress', ({ payload }) => {
+      if (payload.stage === 'changelog') { updateChangelog.value = payload.changelog ?? ''; return }
       checking.value = ['check', 'download', 'install'].includes(payload.stage)
       if (payload.stage === 'check') updateMessage.value = '正在检查更新…'
       else if (payload.stage === 'install') updateMessage.value = `正在启动 v${payload.version} 安装程序…`
@@ -101,6 +103,7 @@ async function checkForUpdates() {
         <Check v-if="updateMessage === '当前已是最新版本'" class="size-4 text-emerald-500" aria-hidden="true" />
         {{ updateMessage }}
       </p>
+      <section v-if="updateChangelog" class="rounded-lg border p-3"><h3 class="text-sm font-semibold">新版本更新日志</h3><p class="mt-2 whitespace-pre-line text-xs text-muted-foreground">{{ updateChangelog }}</p></section>
     </section>
   </div>
 </template>

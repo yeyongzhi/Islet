@@ -135,11 +135,11 @@ async function hideIsland() {
         <Button variant="ghost" size="sm" class="h-7 px-1 text-xs" @pointerdown.stop @click.stop="notify.dismiss()">关闭</Button>
       </div>
       <DropdownMenu v-if="settings.prefs.quickPanelSwitch">
-        <Tooltip><TooltipTrigger as-child><DropdownMenuTrigger as-child>
+        <DropdownMenuTrigger as-child>
           <Button variant="ghost" size="icon" class="absolute left-0 top-0 size-8" aria-label="选择面板" @pointerdown.stop>
             <LayoutGrid class="size-4" aria-hidden="true" />
           </Button>
-        </DropdownMenuTrigger></TooltipTrigger><TooltipContent>选择面板</TooltipContent></Tooltip>
+        </DropdownMenuTrigger>
         <DropdownMenuContent align="start" class="w-44">
           <ScrollArea class="h-48">
             <DropdownMenuItem v-for="panel in panels.visiblePanels" :key="panel.id" @select="panels.select(panel.id)">
@@ -170,7 +170,7 @@ async function hideIsland() {
         </Tooltip>
       </TooltipProvider>
       <DropdownMenu>
-        <Tooltip><TooltipTrigger as-child><DropdownMenuTrigger as-child>
+        <DropdownMenuTrigger as-child>
           <Button
             variant="ghost"
             size="icon"
@@ -180,7 +180,7 @@ async function hideIsland() {
           >
             <Settings class="size-4" aria-hidden="true" />
           </Button>
-        </DropdownMenuTrigger></TooltipTrigger><TooltipContent>设置</TooltipContent></Tooltip>
+        </DropdownMenuTrigger>
         <DropdownMenuContent align="end" class="text-xs [&_[data-slot=dropdown-menu-item]]:py-1.5">
           <DropdownMenuItem @click="openSettings">打开设置</DropdownMenuItem>
           <DropdownMenuItem @click="hideIsland">隐藏灵动岛（托盘可恢复）</DropdownMenuItem>
@@ -235,7 +235,7 @@ async function hideIsland() {
       @wheel="handleWheel"
     >
       <ScrollArea v-if="settings.prefs.panelIndicatorStyle === 'dots'" class="min-w-0 max-w-[calc(100%-4rem)]"><div class="flex w-max items-center justify-center">
-        <Tooltip v-for="p in panels.visiblePanels" :key="p.id"><TooltipTrigger as-child><Button
+        <Button v-for="p in panels.visiblePanels" :key="p.id"
           variant="ghost"
           size="icon"
           class="size-4 shrink-0 hover:bg-transparent"
@@ -246,7 +246,7 @@ async function hideIsland() {
             class="block rounded-full transition-all"
             :class="panels.activeId === p.id ? 'h-1.5 w-4 bg-foreground' : 'size-1.5 bg-muted-foreground/40 hover:bg-muted-foreground/70'"
           />
-        </Button></TooltipTrigger><TooltipContent>{{ p.label }}</TooltipContent></Tooltip>
+        </Button>
       </div><ScrollBar orientation="horizontal" /></ScrollArea>
       <span v-if="settings.prefs.panelIndicatorStyle === 'text'" class="text-xs font-medium text-foreground">
         {{ panels.visiblePanels.find((p) => p.id === panels.activeId)?.label }}<span class="ml-1 font-normal text-muted-foreground">{{ panels.index + 1 }} / {{ panels.visiblePanels.length }}</span>

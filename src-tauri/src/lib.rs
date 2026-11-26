@@ -169,6 +169,14 @@ async fn run_update(app: &AppHandle, state: &State<'_, AppState>) -> Result<Stri
     let current = semver::Version::parse(env!("CARGO_PKG_VERSION")).map_err(|_| "当前版本号无效")?;
     if update_version_order(&latest) <= update_version_order(&current) { return Ok("当前已是最新版本".into()); }
     let version = latest.to_string();
+    if let Ok(response) = client.get("https://raw.githubusercontent.com/yeyongzhi/Islet/main/CHANGELOG.md").send().await {
+        if let Ok(changelog) = response.text().await {
+            let header = format!("## v{version}");
+            if let Some(section) = changelog.lines().skip_while(|line| !line.starts_with(&header)).skip(1).take_while(|line| !line.starts_with("## ")).collect::<Vec<_>>().join("\n").trim().strip_prefix("") {
+                let _ = app.emit("island://update-progress", serde_json::json!({"stage":"changelog", "version":version, "changelog":section}));
+            }
+        }
+    }
     let tag = format!("v{version}");
     let arch = if cfg!(target_arch = "x86_64") { "x64" } else if cfg!(target_arch = "aarch64") { "arm64" } else { return Err("当前架构不支持自动更新".into()); };
     let filename = format!("Islet_{version}_{arch}-setup.exe");
@@ -492,9 +500,10 @@ fn clamp_offset(edge: &str, offset: f64, screen: (f64, f64), pill: (f64, f64)) -
 fn apply_layout(
     window: &WebviewWindow,
     edge: &str,
-    _expanded: bool,
+    expanded: bool,
     offset: f64,
     panel: Option<(f64, f64)>,
+    compact_width: Option<f64>,
     gap: f64,
 ) -> Result<(), String> {
     let Some((sw, sh, scale)) = screen_metrics(window) else {
@@ -502,12 +511,11 @@ fn apply_layout(
     };
     let screen = (sw, sh);
     let compact = if edge == "top" || edge == "bottom" {
-        (PILL_WIDTH, PILL_HEIGHT)
+        (compact_width.unwrap_or(PILL_WIDTH).clamp(80.0, sw), PILL_HEIGHT)
     } else {
         (DOCK_STRIP_WIDTH, DOCK_STRIP_HEIGHT)
     };
-    // 临时诊断：保持原生窗口尺寸不变，确认 WebView2 缩放是否造成闪烁。
-    let size = panel.unwrap_or((EXPANDED_WIDTH, EXPANDED_HEIGHT));
+    let size = if expanded { panel.unwrap_or((EXPANDED_WIDTH, EXPANDED_HEIGHT)) } else { compact };
     let center = clamp_offset(edge, offset, screen, compact);
     let m = gap;
 
@@ -575,6 +583,7 @@ fn set_island_state(
     offset: f64,
     panel_width: Option<f64>,
     panel_height: Option<f64>,
+    compact_width: Option<f64>,
     edge_gap: Option<f64>,
 ) -> Result<(), String> {
     apply_layout(
@@ -583,6 +592,7 @@ fn set_island_state(
         expanded,
         offset,
         panel_width.zip(panel_height),
+        compact_width,
         edge_gap.unwrap_or(EDGE_MARGIN),
     )
 }
@@ -647,7 +657,7 @@ fn finish_drag(window: WebviewWindow, current_edge: String, edge_gap: Option<f64
         .map(|v| v["compactStyle"].as_str() == Some("notch") || v["edgeAttached"].as_bool().unwrap_or(false))
         .unwrap_or(false);
     let gap = edge_gap.unwrap_or(if attached { 0.0 } else { EDGE_MARGIN });
-    apply_layout(&window, &edge, false, offset, None, gap)?;
+    apply_layout(&window, &edge, false, offset, None, None, gap)?;
     log::info!(
         "[drag] finish_drag: edge={edge} offset={offset} pos=({px:.0},{py:.0}) size=({pw:.0},{ph:.0}) dists=(t:{d_top:.0},b:{d_bottom:.0},l:{d_left:.0},r:{d_right:.0})"
     );
@@ -730,6 +740,7 @@ fn apply_island_layout(
     offset: f64,
     panel_width: Option<f64>,
     panel_height: Option<f64>,
+    compact_width: Option<f64>,
     edge_gap: Option<f64>,
 ) -> Result<(), String> {
     let Some(window) = app.get_webview_window("main") else {
@@ -741,6 +752,7 @@ fn apply_island_layout(
         expanded,
         offset,
         panel_width.zip(panel_height),
+        compact_width,
         edge_gap.unwrap_or(EDGE_MARGIN),
     )
 }
@@ -1340,7 +1352,7 @@ pub fn run() {
             } else {
                 offset
             };
-            apply_layout(&window, &edge, false, initial_offset, None, initial_gap)?;
+            apply_layout(&window, &edge, false, initial_offset, None, None, initial_gap)?;
 
             // 启动系统事件监听（输入法/网络/电池，通知中心数据源）
             start_system_monitors(app.handle().clone());

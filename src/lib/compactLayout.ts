@@ -8,12 +8,15 @@ function itemWidth(id: CompactItem, options?: LayoutOptions) {
   if (id === 'date' && options?.compactDateFormat.startsWith('YYYY')) return 104
   return SIZES[id]
 }
-const WIDTH = 250
+export function compactWidth(items: CompactItem[], options?: LayoutOptions) {
+  return Math.max(80, items.reduce((n, id) => n + itemWidth(id, options), 0) + Math.max(0, items.length - 1) * 8 + 16)
+}
 const GAP = 2
 const HORIZONTAL_INSET = 8
 /** 固定画布上按内容宽度约束位置，确保相邻元素不重叠。 */
 export function compactLayout(items: CompactItem[], positions: Partial<Record<CompactItem, number>>, options?: LayoutOptions) {
   if (!items.length) return []
+  const WIDTH = compactWidth(items, options)
   const sum = items.reduce((n, id) => n + itemWidth(id, options), 0)
   const scale = Math.min(1, (WIDTH - 2 * HORIZONTAL_INSET - GAP * (items.length - 1)) / sum)
   const widths = items.map(id => itemWidth(id, options) * scale)
@@ -38,6 +41,7 @@ export function compactLayout(items: CompactItem[], positions: Partial<Record<Co
 
 /** 移动内容；跨过相邻内容的中心时调整顺序，并推开相邻项以避免重叠。 */
 export function moveCompactItem(items: CompactItem[], positions: Partial<Record<CompactItem, number>>, id: CompactItem, desiredLeft: number, options?: LayoutOptions) {
+  const WIDTH = compactWidth(items, options)
   const current = compactLayout(items, positions, options)
   const moving = current.find(item => item.id === id)
   if (!moving) return null

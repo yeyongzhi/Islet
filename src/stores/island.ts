@@ -1,3 +1,4 @@
+import { compactWidth } from '@/lib/compactLayout'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { useSettingsStore, PANEL_SIZES } from './settings'
@@ -38,6 +39,7 @@ export const useIslandStore = defineStore('island', () => {
       edge: settings.prefs.islandEdge,
       expanded: value,
       offset: settings.prefs.islandOffset,
+      compactWidth: compactWidth(settings.prefs.compactItems, settings.prefs),
       panelWidth: sizeOverride?.w ?? size.w,
       edgeGap: settings.prefs.compactStyle === 'notch' || settings.prefs.edgeAttached ? 0 : 8,
       panelHeight: sizeOverride?.h ?? size.h,

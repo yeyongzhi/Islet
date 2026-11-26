@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { Cloud, CloudFog, CloudLightning, CloudRain, CloudSnow, CloudSun, Sun } from 'lucide-vue-next'
-import { toast } from 'vue-sonner'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { compactLayout, moveCompactItem } from '@/lib/compactLayout'
+import { compactLayout, compactWidth, moveCompactItem } from '@/lib/compactLayout'
 import IslandPill from '@/components/island/IslandPill.vue'
 import RobotFace from '@/components/island/RobotFace.vue'
-import { COMPACT_ITEMS, MAX_COMPACT_ITEMS, useSettingsStore, type CompactDateFormat, type CompactItem } from '@/stores/settings'
+import { COMPACT_ITEMS, useSettingsStore, type CompactDateFormat, type CompactItem } from '@/stores/settings'
 
 const settings = useSettingsStore()
 const weatherIcons = [
@@ -27,10 +26,6 @@ const dragging = ref<CompactItem | null>(null)
 let dragOffset = 0
 function label(id: CompactItem) { return COMPACT_ITEMS.find(item => item.id === id)!.label }
 function toggle(id: CompactItem, value: boolean) {
-  if (value && !enabled.value.includes(id) && enabled.value.length >= MAX_COMPACT_ITEMS) {
-    toast.warning(`最多显示 ${MAX_COMPACT_ITEMS} 项，请先关闭其他内容`)
-    return
-  }
   settings.setCompactItems(value ? [...enabled.value, id] : enabled.value.filter(item => item !== id))
 }
 function startDrag(id: CompactItem, event: PointerEvent) {
@@ -39,7 +34,7 @@ function startDrag(id: CompactItem, event: PointerEvent) {
   const rect = preview.value.getBoundingClientRect()
   const item = compactLayout(enabled.value, settings.prefs.compactPositions, settings.prefs).find(item => item.id === id)
   if (!item) return
-  dragOffset = (event.clientX - rect.left) * 250 / rect.width - item.left
+  dragOffset = (event.clientX - rect.left) * compactWidth(enabled.value, settings.prefs) / rect.width - item.left
   dragging.value = id
   window.addEventListener('pointermove', onDrag)
   window.addEventListener('pointerup', endDrag)
@@ -48,7 +43,7 @@ function startDrag(id: CompactItem, event: PointerEvent) {
 function onDrag(event: PointerEvent) {
   if (!dragging.value || !preview.value) return
   const rect = preview.value.getBoundingClientRect()
-  const next = moveCompactItem(enabled.value, settings.prefs.compactPositions, dragging.value, (event.clientX - rect.left) * 250 / rect.width - dragOffset, settings.prefs)
+  const next = moveCompactItem(enabled.value, settings.prefs.compactPositions, dragging.value, (event.clientX - rect.left) * compactWidth(enabled.value, settings.prefs) / rect.width - dragOffset, settings.prefs)
   if (next) settings.setCompactLayout(next.items, next.positions)
 }
 function moveBy(id: CompactItem, direction: number) {
@@ -75,9 +70,9 @@ onBeforeUnmount(endDrag)
 </script>
 <template>
   <div class="flex max-w-xl flex-col gap-5">
-    <div><h3 class="text-sm font-semibold">收起状态</h3><p class="mt-1 text-xs text-muted-foreground">最多显示三项；水平拖动预览中的内容调整位置，元素不会重叠，修改立即生效；也可聚焦内容后使用左右方向键。</p></div>
+    <div><h3 class="text-sm font-semibold">收起状态</h3><p class="mt-1 text-xs text-muted-foreground">水平拖动预览中的内容调整位置，元素不会重叠，修改立即生效；也可聚焦内容后使用左右方向键。</p></div>
     <div class="flex justify-center rounded-lg bg-muted/30 p-4">
-      <div ref="preview" class="h-10 w-[250px] overflow-hidden bg-background text-foreground" :style="{ borderRadius: `${Math.min(20, settings.prefs.borderRadius + 4)}px`, boxShadow: 'var(--island-shadow)' }" aria-label="收起状态预览"><IslandPill edit-mode :dragging-item="dragging" @drag-start="startDrag" @move="moveBy" /></div>
+      <div ref="preview" class="h-10 overflow-hidden bg-background text-foreground" :style="{ width: `${compactWidth(enabled, settings.prefs)}px`, borderRadius: `${Math.min(20, settings.prefs.borderRadius + 4)}px`, boxShadow: 'var(--island-shadow)' }" aria-label="收起状态预览"><IslandPill edit-mode :dragging-item="dragging" @drag-start="startDrag" @move="moveBy" /></div>
     </div>
     <p class="text-xs text-muted-foreground">番茄钟运行和通知出现时会临时优先显示；左右停靠时纵向显示所选内容。内容过多时可能被截断。</p>
     <section v-for="group in groups" :key="group.label" class="flex flex-col gap-2">
@@ -98,7 +93,7 @@ onBeforeUnmount(endDrag)
             <Switch v-else :model-value="settings.prefs.compactWeatherIcon" aria-label="天气显示图标" @update:model-value="value => settings.set('compactWeatherIcon', !!value)" />
           </CardContent>
           <CardContent v-if="id === 'face'" class="flex items-center gap-2 px-3">
-            <RobotFace class="size-8 shrink-0" />
+            <div class="flex flex-wrap items-center gap-2"><span v-for="mood in (['neutral', 'happy', 'angry', 'sad', 'surprised'] as const)" :key="mood" class="flex flex-col items-center gap-1"><RobotFace :mood="mood" class="size-8 shrink-0" /><span class="text-xs text-muted-foreground">{{ { neutral: '平静', happy: '开心', angry: '生气', sad: '难过', surprised: '惊讶' }[mood] }}</span></span></div>
             <span class="text-xs text-muted-foreground">灵岛表情</span>
           </CardContent>
           <CardContent v-if="id === 'weather'" class="flex flex-wrap gap-x-3 gap-y-2 px-3" aria-label="天气图标预览">

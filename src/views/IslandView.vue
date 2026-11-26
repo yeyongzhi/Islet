@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { invoke } from '@tauri-apps/api/core'
+import { compactWidth } from '@/lib/compactLayout'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { cursorPosition, getCurrentWindow } from '@tauri-apps/api/window'
 import type { UnlistenFn } from '@tauri-apps/api/event'
@@ -142,7 +143,7 @@ function compactDims(): { w: number; h: number; r: number } {
     // 侧边停靠：竖向长条（胶囊圆角封顶为宽度一半）
     return { w: 112, h: 220, r: Math.min(20, Math.max(6, r + 4)) }
   }
-  return { w: 250, h: 40, r: Math.min(20, Math.max(2, r + 4)) }
+  return { w: notify.current ? Math.max(220, compactWidth(settings.prefs.compactItems, settings.prefs)) : compactWidth(settings.prefs.compactItems, settings.prefs), h: 40, r: Math.min(20, Math.max(2, r + 4)) }
 }
 
 const shellStyle = computed(() => {
@@ -329,6 +330,7 @@ function layoutParams(edge: string, expanded: boolean, offset: number) {
     edge,
     expanded,
     offset,
+    compactWidth: notify.current ? Math.max(220, compactWidth(settings.prefs.compactItems, settings.prefs)) : compactWidth(settings.prefs.compactItems, settings.prefs),
     panelWidth: panelSize.value.w,
     panelHeight: panelSize.value.h,
     edgeGap: settings.prefs.compactStyle === 'notch' || settings.prefs.edgeAttached ? 0 : 8,
@@ -424,7 +426,7 @@ function resetDrag() {
 
 // 停靠边或偏移变化（设置里切换位置、拖动吸附）时按当前状态重新应用布局
 watch(
-  () => [settings.prefs.islandEdge, settings.prefs.islandOffset, settings.prefs.edgeAttached, settings.prefs.compactStyle] as const,
+  () => [settings.prefs.islandEdge, settings.prefs.islandOffset, settings.prefs.edgeAttached, settings.prefs.compactStyle, compactWidth(settings.prefs.compactItems, settings.prefs), !!notify.current] as const,
   () => {
     invoke('set_island_state', layoutParams(
       settings.prefs.islandEdge,
