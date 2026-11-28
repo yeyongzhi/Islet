@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { onMounted } from 'vue'
 import illustration from '@/assets/panel-illustrations/toilet.png'
+import PanelDetailIcon from '@/components/island/PanelDetailIcon.vue'
 import { Button } from '@/components/ui/button'
 import { useHealthStore } from '@/stores/health'
 
@@ -15,42 +16,33 @@ onMounted(() => health.load())
     <!-- 左：马桶标识 -->
     <img :src="illustration" class="size-20 shrink-0 self-center object-contain" alt="" aria-hidden="true" />
 
-    <!-- 右：内容（纵向铺满，消除上下留白） -->
-    <div class="flex min-h-0 min-w-0 flex-1 flex-col justify-between gap-1">
-      <div class="flex items-baseline gap-2">
-
-        <p class="text-xs text-muted-foreground">每日零点自动清零</p>
-      </div>
-
-      <div class="grid grid-cols-2 divide-x divide-border">
-        <div class="flex min-w-0 flex-col items-start gap-1 px-2">
-          <span class="text-sm">小手</span>
-          <span class="text-sm text-muted-foreground tabular-nums"
-            >{{ health.counters.pee }} 次</span
-          >
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col py-1">
+      <div class="grid min-h-0 flex-1 grid-cols-2 divide-x divide-border">
+        <div class="flex min-w-0 flex-col justify-between gap-2 px-2.5 py-1">
+          <span class="text-sm font-medium">小手</span>
+          <p class="text-2xl font-semibold leading-none tabular-nums">{{ health.counters.pee }} <span class="text-xs font-normal text-muted-foreground">次</span></p>
           <Button
+            variant="secondary"
             size="sm"
             class="h-8 w-full"
             aria-label="记录一次小手"
             @click="health.addPee()"
-            >+1</Button
+            ><PanelDetailIcon name="toilet-add" style="width: 24px; height: 24px" />记录</Button
           >
         </div>
-        <div class="flex min-w-0 flex-col items-start gap-1 px-2">
-          <span class="text-sm">大手</span>
-          <span class="text-sm text-muted-foreground tabular-nums"
-            >{{ health.counters.poo }} 次</span
-          >
+        <div class="flex min-w-0 flex-col justify-between gap-2 px-2.5 py-1">
+          <span class="text-sm font-medium">大手</span>
+          <p class="text-2xl font-semibold leading-none tabular-nums">{{ health.counters.poo }} <span class="text-xs font-normal text-muted-foreground">次</span></p>
           <Button
+            variant="secondary"
             size="sm"
             class="h-8 w-full"
             aria-label="记录一次大手"
             @click="health.addPoo()"
-            >+1</Button
+            ><PanelDetailIcon name="toilet-add" style="width: 24px; height: 24px" />记录</Button
           >
         </div>
       </div>
-
     </div>
   </div>
 </template>

@@ -1,5 +1,4 @@
 import {
-  ArrowDownUp,
   BatteryCharging,
   Briefcase,
   CalendarDays,
@@ -15,6 +14,7 @@ import {
   Eye,
   Music,
   Rocket,
+  Ruler,
   Timer,
   Toilet,
   TrendingUp,
@@ -31,7 +31,6 @@ export type PanelId =
   | 'clock'
   | 'progress'
   | 'countdown'
-  | 'rates'
   | 'weather'
   | 'monitor'
   | 'netspeed'
@@ -51,6 +50,7 @@ export type PanelId =
   | 'timer'
   | 'volume'
   | 'power'
+  | 'units'
 
 export type PanelCategory = '信息' | '工具' | '健康'
 
@@ -81,7 +81,6 @@ export const PANELS: PanelMeta[] = [
   { id: 'clock', label: '日期时间', icon: Clock, category: '信息', desc: '日期、星期与时间，支持秒与 12/24 小时制' },
   { id: 'progress', label: '时间进度', icon: TrendingUp, category: '信息', desc: '今天/本周/本月/本年的进度' },
   { id: 'countdown', label: '倒数日', icon: CalendarX2, category: '信息', desc: '距离纪念日/deadline 还有几天' },
-  { id: 'rates', label: '汇率', icon: ArrowDownUp, category: '信息', desc: '常用货币实时汇率' },
   { id: 'weather', label: '天气', icon: CloudSun, category: '信息', desc: '当前天气与未来几天预报' },
   { id: 'monitor', label: '系统监控', icon: Cpu, category: '信息', desc: 'CPU 与内存占用' },
   { id: 'netspeed', label: '网络连接', icon: Wifi, category: '信息', desc: '网络连接状态与实时上传、下载速度' },
@@ -92,6 +91,7 @@ export const PANELS: PanelMeta[] = [
   { id: 'transfer', label: '中转站', icon: FolderInput, category: '工具', desc: '文件暂存与拖出使用' },
   { id: 'gallery', label: '相册', icon: Images, category: '工具', desc: '浏览本机图片' },
   { id: 'quickstart', label: '快速启动', icon: Rocket, category: '工具', desc: '常用应用/网址一键打开' },
+  { id: 'units', label: '单位换算', icon: Ruler, category: '工具', desc: '长度、重量、温度等常用单位换算' },
   { id: 'offwork', label: '下班倒计时', icon: Briefcase, category: '工具', desc: '下班/发薪日/工龄，可自定义' },
   { id: 'sysinfo', label: '系统信息', icon: Cpu, category: '工具', desc: '开机时长与电池状态' },
   { id: 'timer', label: '倒计时器', icon: Timer, category: '工具', desc: '自定义计时、暂停与结束提醒' },
@@ -107,15 +107,6 @@ const TIME_OPTIONS = ['17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:
   (t) => ({ value: t, label: t }),
 )
 
-const CURRENCY_OPTIONS = [
-  { value: 'CNY', label: '人民币 CNY' },
-  { value: 'USD', label: '美元 USD' },
-  { value: 'EUR', label: '欧元 EUR' },
-  { value: 'JPY', label: '日元 JPY' },
-  { value: 'GBP', label: '英镑 GBP' },
-  { value: 'HKD', label: '港币 HKD' },
-]
-
 const MINUTE_OPTIONS = (minutes: number[]) =>
   minutes.map((m) => ({ value: String(m), label: `${m} 分钟` }))
 
@@ -129,11 +120,7 @@ export const PANEL_OPTIONS: Record<PanelId, PanelOptionDef[]> = {
     { key: 'showYear', label: '显示全年进度', type: 'switch', default: true },
   ],
   countdown: [],
-  rates: [
-    { key: 'fromCur', label: '基准货币', type: 'select', default: 'USD', options: CURRENCY_OPTIONS },
-    { key: 'toCur', label: '目标货币', type: 'select', default: 'CNY', options: CURRENCY_OPTIONS },
-  ],
-  weather: [],
+  weather: [{ key: 'cacheMinutes', label: '天气缓存时间', type: 'select', default: '10', options: MINUTE_OPTIONS([5, 10, 15, 30, 60]) }],
   monitor: [],
   netspeed: [],
   disks: [],
@@ -143,6 +130,7 @@ export const PANEL_OPTIONS: Record<PanelId, PanelOptionDef[]> = {
   clipboard: [],
   transfer: [],
   quickstart: [],
+  units: [],
   gallery: [],
   timer: [],
   volume: [],

@@ -113,5 +113,5 @@ export const useMusicStore = defineStore('music', () => {
     } finally { seeking = false }
   }
 
-  return { state, thumbnail, error, controlError, startPolling, control, seek }
+  return { state, thumbnail, error, controlError, startPolling, refresh, control, seek }
 })

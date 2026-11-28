@@ -1,6 +1,6 @@
 import type { CompactItem } from '@/stores/settings'
 
-const SIZES: Record<CompactItem, number> = { face: 32, time: 78, weather: 48, date: 48, weekday: 48, battery: 42 }
+const SIZES: Record<CompactItem, number> = { face: 32, time: 78, weather: 48, date: 48, weekday: 48, battery: 58, cpu: 58, memory: 58, download: 94, upload: 94, volume: 58, disk: 58, water: 48 }
 type LayoutOptions = { compactShowSeconds: boolean; compactWeatherIcon: boolean; compactDateFormat: string }
 function itemWidth(id: CompactItem, options?: LayoutOptions) {
   if (id === 'time' && options?.compactShowSeconds === false) return 58

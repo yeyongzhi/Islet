@@ -1,6 +1,6 @@
 [package]
 name = "islet"
-version = "0.1.0-beta.7"
+version = "0.1.0-beta.8"
 description = "Islet（灵岛）- Windows 桌面灵动岛与轻量信息工具"
 authors = ["Aurora"]
 license = ""

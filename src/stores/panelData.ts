@@ -86,6 +86,13 @@ export const useCountdownStore = defineStore('countdown', () => {
     persist()
   }
 
+  function update(id: string, name: string, date: string, options: Partial<Pick<CountdownEntry, 'repeat' | 'color' | 'icon' | 'remindDays'>>) {
+    const entry = data.value?.find(item => item.id === id)
+    if (!entry) return
+    Object.assign(entry, options, { name, date })
+    persist()
+  }
+
   /** 距目标日期的剩余天数（当天为 0，过去为负数） */
   function daysLeft(date: string, repeat: CountdownEntry['repeat'] = 'none'): number {
     return daysUntil(date, repeat, island.now)
@@ -98,7 +105,7 @@ export const useCountdownStore = defineStore('countdown', () => {
       return Number(x < 0) - Number(y < 0) || (x < 0 ? y - x : x - y)
     })
 
-  return { data, error, load, add, remove, daysLeft, sorted }
+  return { data, error, load, add, update, remove, daysLeft, sorted }
 })
 
 export interface LocalEvent { id: string; title: string; at: string; remindMinutes: number }

@@ -6,17 +6,10 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { weatherIcon, weatherText } from '@/services/openMeteo'
-import { useSettingsStore } from '@/stores/settings'
 import { useWeatherStore } from '@/stores/weather'
 
 const weather = useWeatherStore()
-const settings = useSettingsStore()
-
-onMounted(async () => {
-  // 每次打开天气面板时同步最新偏好（城市可能在设置窗口被修改）并刷新数据
-  await settings.load()
-  weather.load()
-})
+onMounted(() => { void weather.load() })
 
 const WEEKDAY = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'] as const
 
@@ -33,7 +26,7 @@ function dateLabel(date: string, index: number) {
   <div class="flex h-full flex-col gap-2">
 
     <!-- 加载中 -->
-    <div v-if="weather.status === 'loading'" class="flex flex-1 items-center justify-center text-xs text-muted-foreground" role="status">加载中…</div>
+    <div v-if="weather.status === 'loading' && !weather.data" class="flex flex-1 items-center justify-center text-xs text-muted-foreground" role="status">加载中…</div>
 
     <!-- 加载失败 -->
     <Alert v-else-if="weather.status === 'error' && !weather.data">
@@ -48,7 +41,7 @@ function dateLabel(date: string, index: number) {
     <div v-else-if="weather.data" class="flex min-h-0 flex-1 gap-3">
       <!-- 左：当前天气 -->
       <div class="relative flex w-32 shrink-0 flex-col justify-between gap-0.5 border-r border-border pr-3">
-        <Tooltip><TooltipTrigger as-child><Button variant="ghost" size="icon" class="absolute right-1 top-1 size-7" aria-label="刷新天气" @click="weather.load()"><PanelDetailIcon name="reset" style="width: 20px; height: 20px" /></Button></TooltipTrigger><TooltipContent>刷新天气</TooltipContent></Tooltip>
+        <Tooltip><TooltipTrigger as-child><Button variant="ghost" size="icon" class="absolute right-1 top-1 size-7" aria-label="刷新天气" :disabled="weather.status === 'loading'" @click="weather.load(true)"><PanelDetailIcon name="reset" class="size-4" /></Button></TooltipTrigger><TooltipContent>刷新天气</TooltipContent></Tooltip>
         <PanelDetailIcon :name="weatherIcon(weather.data.current.weatherCode)" class="size-8" />
         <p class="text-3xl font-semibold tabular-nums">
           {{ weather.data.current.temperature }}°
@@ -56,9 +49,10 @@ function dateLabel(date: string, index: number) {
         <p class="text-sm text-muted-foreground">
           {{ weatherText(weather.data.current.weatherCode) }}
         </p>
-        <p class="text-xs text-muted-foreground">{{ weather.data.city }}<span v-if="weather.status === 'error'"> · 缓存</span></p>
+        <p class="text-xs text-muted-foreground">{{ weather.data.city }}<span v-if="weather.showingOldCity"> · 上次城市</span><span v-else-if="weather.status === 'error'"> · 旧数据</span></p>
+        <p v-if="weather.showingOldCity" class="text-xs text-muted-foreground" role="status">{{ weather.status === 'loading' ? `正在查询 ${weather.requestedCity}` : `${weather.requestedCity} 查询失败` }}</p>
         <p v-if="weather.updatedAt" class="text-xs text-muted-foreground">更新于 {{ new Date(weather.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) }}</p>
-        <Button v-if="weather.status === 'error'" size="sm" class="mt-1 h-7 text-xs" @click="weather.load()">重试</Button>
+        <Button v-if="weather.status === 'error'" size="sm" class="mt-1 h-7 text-xs" @click="weather.load(true)">重试</Button>
       </div>
 
       <!-- 右：未来几天（列表超出高度时滚动） -->

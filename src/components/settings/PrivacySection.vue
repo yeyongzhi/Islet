@@ -45,7 +45,7 @@ async function clearHealthHistory() { try { await health.clearHistory(); toast('
       <h3 class="text-sm font-semibold">本地数据与网络</h3>
       <p class="break-all rounded-lg border p-3 text-xs text-muted-foreground">{{ dataDir }}</p>
       <p class="text-xs text-muted-foreground">设置、健康计数、倒数日和中转站路径保存在本地。中转站只保存原文件路径，不复制或删除原文件。</p>
-      <p class="text-xs text-muted-foreground">天气向 Open-Meteo 发送所选城市及坐标；汇率向 Frankfurter 请求所选货币。系统信息在本机读取。</p>
+      <p class="text-xs text-muted-foreground">天气向 Open-Meteo 发送所选城市及坐标。系统信息在本机读取。</p>
       <div class="flex items-center justify-between gap-3"><div><p class="text-sm">保存健康历史</p><p class="text-xs text-muted-foreground">可选，默认关闭；本地保留最近 30 个有记录的日期</p></div><Switch :model-value="settings.prefs.healthHistoryEnabled" aria-label="保存健康历史" @update:model-value="v => settings.set('healthHistoryEnabled', !!v)" /></div>
       <p v-if="health.historyError" class="text-xs text-destructive">{{ health.historyError }}</p>
       <div v-if="health.history.length" class="flex flex-col gap-1 rounded-lg border p-3"><p class="text-xs font-medium">最近记录 · 喝水趋势</p><TrendLine :values="health.history.slice(-7).map(entry => entry.water)" label="最近记录的喝水杯数" /><p v-for="entry in health.history.slice(-7).reverse()" :key="entry.date" class="text-xs text-muted-foreground tabular-nums">{{ entry.date }} · 水 {{ entry.water }} 杯 · 小手 {{ entry.pee }} 次 · 大手 {{ entry.poo }} 次</p></div>

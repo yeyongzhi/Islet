@@ -20,6 +20,7 @@ import { useClipboardStore } from '@/stores/clipboard'
 import { useHealthStore } from '@/stores/health'
 import { useSettingsStore } from '@/stores/settings'
 import { useWeatherStore } from '@/stores/weather'
+import { searchCities, type WeatherLocation } from '@/services/openMeteo'
 
 const health = useHealthStore()
 const clipboard = useClipboardStore()
@@ -27,6 +28,9 @@ const settings = useSettingsStore()
 const weather = useWeatherStore()
 const dataDir = ref('')
 const cityDraft = ref('')
+const cityResults = ref<WeatherLocation[]>([])
+const citySearching = ref(false)
+const cityError = ref('')
 
 onMounted(async () => {
   cityDraft.value = settings.prefs.weatherCity
@@ -38,12 +42,21 @@ onMounted(async () => {
   }
 })
 
-function applyCity() {
+async function findCity() {
   const city = cityDraft.value.trim()
-  if (!city || city === settings.prefs.weatherCity) return
-  settings.set('weatherCity', city)
-  weather.changeCity(city)
-  toast(`天气城市已保存为「${city}」`)
+  if (!city) return
+  citySearching.value = true; cityError.value = ''; cityResults.value = []
+  try { cityResults.value = await searchCities(city); if (!cityResults.value.length) cityError.value = '未找到匹配的城市' }
+  catch { cityError.value = '城市查询失败，请检查网络后重试' }
+  finally { citySearching.value = false }
+}
+function applyCity(city: WeatherLocation) {
+  const label = [city.name, city.admin1, city.country].filter(Boolean).filter((v, i, all) => all.indexOf(v) === i).join(' · ')
+  settings.set('weatherLocation', city)
+  settings.set('weatherCity', label)
+  cityDraft.value = label; cityResults.value = []
+  weather.load(true)
+  toast(`天气城市已选择「${label}」`)
 }
 </script>
 
@@ -57,12 +70,14 @@ function applyCity() {
           class="w-48"
           placeholder="输入城市名，如：杭州"
           aria-label="天气城市"
-          @keydown.enter="applyCity"
+          @keydown.enter="findCity"
         />
-        <Button size="sm" @click="applyCity">保存</Button>
+        <Button size="sm" :disabled="citySearching || !cityDraft.trim()" @click="findCity">{{ citySearching ? '查询中…' : '搜索' }}</Button>
       </div>
+      <p v-if="cityError" class="text-xs text-destructive" role="status">{{ cityError }}</p>
+      <div v-if="cityResults.length" class="flex max-h-40 flex-col overflow-auto rounded-md border"><Button v-for="city in cityResults" :key="`${city.latitude},${city.longitude}`" variant="ghost" class="h-auto justify-start whitespace-normal px-3 py-2 text-left" @click="applyCity(city)">{{ [city.name, city.admin1, city.country].filter(Boolean).filter((v, i, all) => all.indexOf(v) === i).join(' · ') }}</Button></div>
       <p class="text-xs text-muted-foreground">
-        灵动岛天气面板使用 Open-Meteo 查询该城市的实时与未来 6 天预报；保存后重新打开天气面板生效。
+        搜索后选择城市；天气数据来自 Open-Meteo。
       </p>
     </section>
 

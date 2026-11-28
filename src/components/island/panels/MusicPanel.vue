@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { computed, onMounted, ref, watch } from 'vue'
 import PanelDetailIcon from '@/components/island/PanelDetailIcon.vue'
 import illustration from '@/assets/panel-illustrations/music.png'
@@ -46,6 +45,7 @@ function toggle() {
           {{ music.error ? '无法读取播放器状态，请稍后重试' : '在播放器开始播放后自动显示' }}
         </p>
       </div>
+      <Button v-if="music.error" variant="secondary" size="sm" @click="music.refresh()">重试</Button>
     </template>
 
     <!-- 播放中 / 有会话 -->
@@ -97,7 +97,7 @@ function toggle() {
 
           <!-- 播放控制 -->
           <div class="flex items-center justify-center gap-4 pt-1.5">
-            <Tooltip><TooltipTrigger as-child><Button
+            <Button
               variant="ghost"
               size="icon"
               class="size-10 hover:bg-accent"
@@ -105,9 +105,9 @@ function toggle() {
               :disabled="!music.state!.can_prev"
               @click="music.control('prev')"
             >
-              <PanelDetailIcon name="previous" style="width: 24px; height: 24px" />
-            </Button></TooltipTrigger><TooltipContent>上一曲</TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger as-child><Button
+              <PanelDetailIcon name="previous" style="width: 26px; height: 26px" />
+            </Button>
+            <Button
               variant="secondary"
               size="icon"
               class="size-11 rounded-full"
@@ -115,10 +115,10 @@ function toggle() {
               :disabled="music.state!.playing ? !music.state!.can_pause : !music.state!.can_play"
               @click="toggle"
             >
-              <PanelDetailIcon name="pause" style="width: 24px; height: 24px" v-if="music.state!.playing" />
-              <PanelDetailIcon name="play" style="width: 24px; height: 24px" v-else />
-            </Button></TooltipTrigger><TooltipContent>{{ music.state!.playing ? '暂停' : '播放' }}</TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger as-child><Button
+              <PanelDetailIcon v-if="music.state!.playing" name="pause" style="width: 26px; height: 26px" />
+              <PanelDetailIcon v-else name="play" style="width: 26px; height: 26px" />
+            </Button>
+            <Button
               variant="ghost"
               size="icon"
               class="size-10 hover:bg-accent"
@@ -126,8 +126,8 @@ function toggle() {
               :disabled="!music.state!.can_next"
               @click="music.control('next')"
             >
-              <PanelDetailIcon name="next" style="width: 24px; height: 24px" />
-            </Button></TooltipTrigger><TooltipContent>下一曲</TooltipContent></Tooltip>
+              <PanelDetailIcon name="next" style="width: 26px; height: 26px" />
+            </Button>
           </div>
         </div>
       </div>

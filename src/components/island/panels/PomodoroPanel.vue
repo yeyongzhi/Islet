@@ -81,7 +81,7 @@ watch(
         <Tooltip><TooltipTrigger as-child><Button
           variant="ghost"
           size="icon"
-          class="size-10 text-muted-foreground hover:bg-accent"
+          class="size-10 text-muted-foreground hover:bg-transparent"
           :disabled="pomodoro.phase !== 'idle'"
           :aria-label="`切换时长，当前 ${minutes} 分钟`"
           @click="cycleDuration"
@@ -100,17 +100,17 @@ watch(
         :aria-label="pomodoro.running ? '暂停' : '开始'"
         @click="start"
       >
-        <PanelDetailIcon name="pause" style="width: 20px; height: 20px" v-if="pomodoro.running" />
-        <PanelDetailIcon name="play" style="width: 20px; height: 20px" v-else />
+        <PanelDetailIcon name="pomodoro-pause" style="width: 24px; height: 24px" v-if="pomodoro.running" />
+        <PanelDetailIcon name="pomodoro-play" style="width: 24px; height: 24px" v-else />
         {{ pomodoro.running ? '暂停' : '开始' }}
       </Button>
       <AlertDialog><AlertDialogTrigger as-child><Button
-        variant="secondary"
+        variant="ghost"
         size="sm"
         class="h-8 gap-1.5 rounded-full px-4 text-sm"
         aria-label="结束并重置"
       >
-        <PanelDetailIcon name="reset" style="width: 20px; height: 20px" />
+        <PanelDetailIcon name="pomodoro-reset" style="width: 24px; height: 24px" />
         结束
       </Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>结束本轮计时？</AlertDialogTitle><AlertDialogDescription>当前进度和已完成轮次会重置。</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction class="bg-destructive text-destructive-foreground" @click="pomodoro.reset()">结束</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>

@@ -46,6 +46,7 @@ const CONFIGS: Record<ReminderKind, ReminderConfig> = {
 
 interface PersistState {
   lastAt: number
+  snoozeUntil?: number
 }
 
 export const useRemindersStore = defineStore('reminders', () => {
@@ -60,6 +61,7 @@ export const useRemindersStore = defineStore('reminders', () => {
     water: Date.now(),
   })
   let started = false
+  const snoozeUntil = ref<Record<ReminderKind, number>>({ sedentary: 0, eyecare: 0, water: 0 })
 
   async function loadState() {
     for (const kind of ['sedentary', 'eyecare', 'water'] as ReminderKind[]) {
@@ -72,6 +74,7 @@ export const useRemindersStore = defineStore('reminders', () => {
           if (typeof parsed.lastAt === 'number' && parsed.lastAt > 0) {
             lastAt.value[kind] = parsed.lastAt
           }
+          if (typeof parsed.snoozeUntil === 'number' && Number.isFinite(parsed.snoozeUntil)) snoozeUntil.value[kind] = parsed.snoozeUntil
         }
       } catch {
         // 非 Tauri 环境忽略
@@ -84,7 +87,7 @@ export const useRemindersStore = defineStore('reminders', () => {
       m
         .invoke('save_panel_data', {
           key: kind,
-          json: JSON.stringify({ lastAt: lastAt.value[kind] } satisfies PersistState),
+          json: JSON.stringify({ lastAt: lastAt.value[kind], snoozeUntil: snoozeUntil.value[kind] } satisfies PersistState),
         })
         .catch(() => {}),
     )
@@ -92,6 +95,11 @@ export const useRemindersStore = defineStore('reminders', () => {
 
   function reset(kind: ReminderKind) {
     lastAt.value[kind] = Date.now()
+    snoozeUntil.value[kind] = 0
+    persist(kind)
+  }
+  function snooze(kind: ReminderKind, minutes: number) {
+    snoozeUntil.value[kind] = Date.now() + minutes * 60000
     persist(kind)
   }
 
@@ -112,12 +120,24 @@ export const useRemindersStore = defineStore('reminders', () => {
     if (started) return
     started = true
     await Promise.all([loadState(), health.load()])
+    // 启动和休眠后的逾期提醒最多发送一次，不补发错过的周期。
+    let previousTick = Date.now()
     watch(() => health.counters.water, () => reset('water'))
     // 每秒随全局时钟走一次，到点即通过通知中心提醒（周期性重复直到重置）
     watch(
       () => island.now,
       (now) => {
         health.ensureToday()
+        const timestamp = now.getTime()
+        for (const kind of ['sedentary', 'eyecare', 'water'] as ReminderKind[]) {
+          if (lastAt.value[kind] > timestamp + 2000) { lastAt.value[kind] = timestamp; snoozeUntil.value[kind] = 0; persist(kind) }
+        }
+        if (timestamp < previousTick - 2000) {
+          for (const kind of ['sedentary', 'eyecare', 'water'] as ReminderKind[]) {
+            if (lastAt.value[kind] > timestamp) { lastAt.value[kind] = timestamp; snoozeUntil.value[kind] = 0; persist(kind) }
+          }
+        }
+        previousTick = timestamp
         const hour = now.getHours()
         const start = settings.prefs.reminderStartHour, end = settings.prefs.reminderEndHour
         const within = !settings.prefs.reminderWorkHours || isWithinHours(hour, start, end)
@@ -126,8 +146,9 @@ export const useRemindersStore = defineStore('reminders', () => {
           if (!cardEnabled(kind)) continue
           if (kind === 'water' && (!settings.prefs.notifyWater || health.counters.water >= settings.prefs.waterGoal)) continue
           const intervalMs = minutesOf(kind) * 60000
-          if (now.getTime() - lastAt.value[kind] >= intervalMs) {
+          if (now.getTime() >= (snoozeUntil.value[kind] || lastAt.value[kind] + intervalMs)) {
             lastAt.value[kind] = now.getTime()
+            snoozeUntil.value[kind] = 0
             persist(kind)
             CONFIGS[kind].notify()
           }
@@ -139,8 +160,8 @@ export const useRemindersStore = defineStore('reminders', () => {
   /** 距下次提醒的剩余毫秒数 */
   function remainingMs(kind: ReminderKind): number {
     const intervalMs = minutesOf(kind) * 60000
-    return Math.max(0, intervalMs - (island.now.getTime() - lastAt.value[kind]))
+    return Math.max(0, (snoozeUntil.value[kind] || lastAt.value[kind] + intervalMs) - island.now.getTime())
   }
 
-  return { lastAt, remainingMs, minutesOf, reset, start, loadState }
+  return { lastAt, snoozeUntil, remainingMs, minutesOf, reset, snooze, start, loadState }
 })

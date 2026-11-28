@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { panelIllustration } from '@/lib/panelIllustrations'
+import PanelIllustration from '@/components/island/PanelIllustration.vue'
 import { PANEL_SIZES, useSettingsStore } from '@/stores/settings'
 import PanelPreview from '@/components/settings/PanelPreview.vue'
 import CountdownEditor from '@/components/settings/CountdownEditor.vue'
@@ -234,7 +234,7 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
         <Tooltip><TooltipTrigger as-child><Button variant="ghost" size="icon" class="size-8" aria-label="返回列表" @click="view = 'list'">
           <ArrowLeft class="size-4" aria-hidden="true" />
         </Button></TooltipTrigger><TooltipContent>返回列表</TooltipContent></Tooltip>
-        <img :src="panelIllustration(detailId)" class="size-4 object-contain" alt="" aria-hidden="true" />
+        <PanelIllustration :id="detailId" class="size-4 object-contain" />
         <p class="text-sm font-semibold">{{ detailMeta!.label }}</p>
       </div>
 
@@ -274,15 +274,17 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
               :model-value="(optionValue(detailId!, opt.key, opt.default) as string)"
               @update:model-value="(v) => setOption(detailId!, opt.key, v as string)"
             >
-              <SelectTrigger class="h-8 w-28 text-xs">
+              <SelectTrigger class="h-8 w-28 text-xs" :aria-label="opt.label">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent class="z-50 text-xs">
+                <SelectGroup>
                 <SelectItem
                   v-for="o in opt.options"
                   :key="o.value"
                   :value="o.value"
                 >{{ o.label }}</SelectItem>
+                </SelectGroup>
               </SelectContent>
             </Select>
           </template>
@@ -345,7 +347,7 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
             <GripVertical class="size-4" aria-hidden="true" />
           </span>
           <span class="w-5 shrink-0 text-center text-xs text-muted-foreground tabular-nums">{{ i + 1 }}</span>
-          <img :src="panelIllustration(row.id)" class="size-4 shrink-0 object-contain" alt="" aria-hidden="true" />
+          <PanelIllustration :id="row.id" class="size-4 shrink-0 object-contain" />
           <span class="min-w-0 flex-1 truncate text-sm" :class="row.enabled ? '' : 'text-muted-foreground'">
             {{ row.label }}
           </span>
@@ -403,7 +405,7 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
             class="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-3"
           >
             <div class="flex items-center justify-between">
-              <img :src="panelIllustration(row.id)" class="size-4 object-contain" alt="" aria-hidden="true" />
+              <PanelIllustration :id="row.id" class="size-4 object-contain" />
               <Switch
                 :model-value="row.enabled"
                 :aria-label="`${row.enabled ? '移除' : '添加'}${row.label}卡片`"

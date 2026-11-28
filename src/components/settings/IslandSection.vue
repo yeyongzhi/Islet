@@ -20,7 +20,7 @@ const enabled = computed(() => settings.prefs.compactItems)
 const groups: { label: string; items: CompactItem[] }[] = [
   { label: '灵岛', items: ['face'] },
   { label: '日期与时间', items: ['time', 'date', 'weekday'] },
-  { label: '状态信息', items: ['weather', 'battery'] },
+  { label: '状态信息', items: ['weather', 'battery', 'cpu', 'memory', 'download', 'upload', 'volume', 'disk', 'water'] },
 ]
 const preview = ref<HTMLElement | null>(null)
 const dragging = ref<CompactItem | null>(null)
@@ -116,6 +116,7 @@ onBeforeUnmount(() => finishDrag(false))
       </div>
     </div>
     <p class="text-xs text-muted-foreground">番茄钟运行和通知出现时会临时优先显示；左右停靠时纵向显示所选内容。内容过多时可能被截断。</p>
+    <p class="text-xs text-muted-foreground">系统指标只在启用时采样；网速和磁盘使用率为所有网卡或磁盘的合计。鼠标悬停可查看指标名称与更新状态。</p>
     <section v-for="group in groups" :key="group.label" class="flex flex-col gap-2">
       <h4 class="text-sm font-semibold">{{ group.label }}</h4>
       <div class="grid grid-cols-2 gap-3">
@@ -134,7 +135,7 @@ onBeforeUnmount(() => finishDrag(false))
             <Switch v-else :model-value="settings.prefs.compactWeatherIcon" aria-label="天气显示图标" @update:model-value="value => settings.set('compactWeatherIcon', !!value)" />
           </CardContent>
           <CardContent v-if="id === 'face'" class="flex items-center gap-2 px-3">
-            <div class="flex flex-wrap items-center gap-2"><span v-for="mood in (['neutral', 'happy', 'angry', 'sad', 'surprised'] as const)" :key="mood" class="flex flex-col items-center gap-1"><RobotFace :mood="mood" class="size-8 shrink-0" /><span class="text-xs text-muted-foreground">{{ { neutral: '平静', happy: '开心', angry: '生气', sad: '难过', surprised: '惊讶' }[mood] }}</span></span></div>
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2"><span v-for="mood in (['neutral', 'happy', 'excited', 'wink', 'smug', 'thinking', 'surprised', 'sleepy', 'sad', 'angry'] as const)" :key="mood" class="flex flex-col items-center gap-1"><RobotFace :mood="mood" class="size-8 shrink-0" /><span class="text-xs text-muted-foreground">{{ { neutral: '平静', happy: '开心', excited: '兴奋', wink: '眨眼', smug: '得意', thinking: '思考', surprised: '惊讶', sleepy: '困倦', sad: '难过', angry: '生气' }[mood] }}</span></span></div>
           </CardContent>
           <CardContent v-if="id === 'weather'" class="flex flex-wrap gap-x-3 gap-y-2 px-3" aria-label="天气图标预览">
             <span v-for="item in weatherIcons" :key="item.label" class="flex items-center gap-1 text-xs text-muted-foreground" :title="item.label">

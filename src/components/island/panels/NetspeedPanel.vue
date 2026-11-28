@@ -1,23 +1,24 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import PanelDetailIcon from '@/components/island/PanelDetailIcon.vue'
 import networkImage from '@/assets/panel-illustrations/network.png'
 import TrendLine from '@/components/island/TrendLine.vue'
+import { Button } from '@/components/ui/button'
+import { useCompactMetricsStore } from '@/stores/compactMetrics'
 
 interface NetworkState { connected: boolean; internet?: boolean; wifi?: boolean; name?: string | null; signal?: number | null }
 interface SpeedState { down_kbps: number | null; up_kbps: number | null }
 const props = defineProps<{ preview?: boolean }>()
 const connection = ref<NetworkState | null>(props.preview ? { connected: true, internet: true, wifi: true, name: '示例网络', signal: 4 } : null)
-const speed = ref<SpeedState | null>(props.preview ? { down_kbps: 2458, up_kbps: 320 } : null)
+const metrics = useCompactMetricsStore()
+const speed = computed<SpeedState | null>(() => props.preview ? { down_kbps: 2458, up_kbps: 320 } : metrics.speed)
 const connectionFailed = ref(false)
-const speedFailed = ref(false)
+const speedFailed = computed(() => !props.preview && metrics.speedError)
 const downHistory = ref<number[]>(props.preview ? [500, 850, 690, 1250, 1100, 1800, 1500, 2458] : [])
 const upHistory = ref<number[]>(props.preview ? [100, 180, 150, 220, 170, 270, 210, 320] : [])
 let connectionTimer: number | undefined
-let speedTimer: number | undefined
 let readingConnection = false
-let readingSpeed = false
 
 const connectionText = computed(() => {
   if (connectionFailed.value) return connection.value ? '连接状态更新失败' : '连接状态不可用'
@@ -37,26 +38,19 @@ async function refreshConnection() {
   catch { connectionFailed.value = true }
   finally { readingConnection = false }
 }
-async function refreshSpeed() {
-  if (readingSpeed) return
-  readingSpeed = true
-  try {
-    const next = await invoke<SpeedState>('get_network_speed')
-    speed.value = next
+async function refreshSpeed() { await metrics.readSpeed() }
+watch(() => metrics.speed, next => {
+    if (!next || props.preview) return
     if (next.down_kbps !== null) downHistory.value = [...downHistory.value, next.down_kbps].slice(-30)
     if (next.up_kbps !== null) upHistory.value = [...upHistory.value, next.up_kbps].slice(-30)
-    speedFailed.value = false
-  } catch { speedFailed.value = true }
-  finally { readingSpeed = false }
-}
+})
 onMounted(() => {
   if (props.preview) return
   void refreshConnection()
-  void refreshSpeed()
+  metrics.acquireSpeed()
   connectionTimer = window.setInterval(refreshConnection, 5000)
-  speedTimer = window.setInterval(refreshSpeed, 1000)
 })
-onBeforeUnmount(() => { window.clearInterval(connectionTimer); window.clearInterval(speedTimer) })
+onBeforeUnmount(() => { window.clearInterval(connectionTimer); if (!props.preview) metrics.releaseSpeed() })
 </script>
 
 <template>
@@ -64,7 +58,7 @@ onBeforeUnmount(() => { window.clearInterval(connectionTimer); window.clearInter
     <div class="flex min-w-0 shrink-0 items-center gap-2">
       <img :src="networkImage" class="size-8 shrink-0 object-contain" alt="" aria-hidden="true" />
       <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold" :title="connection?.name ?? undefined">{{ connection?.name || (connection?.connected ? '当前网络' : '网络连接') }}</p><p class="truncate text-xs text-muted-foreground" role="status">{{ connectionText }}</p></div>
-      <span class="shrink-0 text-[10px] text-muted-foreground" title="网速为所有网卡流量之和">全部网卡</span>
+      <Button v-if="connectionFailed || speedFailed" variant="ghost" size="sm" class="h-6 px-2 text-xs" @click="refreshConnection(); refreshSpeed()">重试</Button><span v-else class="shrink-0 text-[10px] text-muted-foreground" title="网速为所有网卡流量之和">全部网卡</span>
     </div>
     <div class="grid min-h-0 flex-1 grid-cols-2 divide-x divide-border">
       <div v-for="item in [{ label: '下载', icon: 'download', value: speed?.down_kbps, history: downHistory }, { label: '上传', icon: 'upload', value: speed?.up_kbps, history: upHistory }]" :key="item.label" class="min-h-0 min-w-0 gap-0  py-0 ">

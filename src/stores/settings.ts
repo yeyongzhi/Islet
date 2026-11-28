@@ -4,16 +4,20 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { PANELS, PANEL_OPTIONS, type PanelId } from '@/stores/panels'
 import { migrateNetworkPanels } from '@/lib/networkPanelMigration'
+import { toast } from 'vue-sonner'
 
 export type AppearanceMode = 'light' | 'dark' | 'system'
 export type IslandEdge = 'top' | 'left' | 'right' | 'bottom'
 export type PanelSize = 'small' | 'medium' | 'large'
 export type CompactContent = 'weather' | 'music' | 'monitor' | 'network' | 'countdown' | 'pomodoro'
-export type CompactItem = 'face' | 'time' | 'weather' | 'date' | 'weekday' | 'battery'
+export type CompactItem = 'face' | 'time' | 'weather' | 'date' | 'weekday' | 'battery' | 'cpu' | 'memory' | 'download' | 'upload' | 'volume' | 'disk' | 'water'
 export const COMPACT_ITEMS: { id: CompactItem; label: string }[] = [
   { id: 'face', label: '灵岛表情' }, { id: 'time', label: '时间' },
   { id: 'weather', label: '天气' }, { id: 'date', label: '日期' },
   { id: 'weekday', label: '星期' }, { id: 'battery', label: '电量' },
+  { id: 'cpu', label: 'CPU 使用率' }, { id: 'memory', label: '内存使用率' },
+  { id: 'download', label: '下载速度' }, { id: 'upload', label: '上传速度' },
+  { id: 'volume', label: '系统音量' }, { id: 'disk', label: '磁盘使用率' }, { id: 'water', label: '今日饮水' },
 ]
 export type PanelIndicatorStyle = 'dots' | 'text'
 export type CompactStyle = 'notch' | 'capsule' | 'indicator'
@@ -52,6 +56,7 @@ export interface Preferences {
   leaveDelay: number
   panelIndicatorStyle: PanelIndicatorStyle
   quickPanelSwitch: boolean
+  hidePanelArrows: boolean
   rememberPanel: boolean
   lastPanel: PanelId
   favoritePanels: PanelId[]
@@ -64,6 +69,7 @@ export interface Preferences {
   clipboardRetentionMinutes: number
   clipboardSensitiveFilter: boolean
   weatherCity: string
+  weatherLocation: { name: string; latitude: number; longitude: number; admin1?: string; country?: string } | null
   pomodoroWorkMin: number
   pomodoroBreakMin: number
   pomodoroRounds: number
@@ -144,6 +150,7 @@ const DEFAULTS: Preferences = {
   leaveDelay: 0,
   panelIndicatorStyle: 'dots',
   quickPanelSwitch: false,
+  hidePanelArrows: false,
   rememberPanel: false,
   lastPanel: 'calendar',
   favoritePanels: [],
@@ -156,6 +163,7 @@ const DEFAULTS: Preferences = {
   clipboardRetentionMinutes: 0,
   clipboardSensitiveFilter: true,
   weatherCity: '杭州',
+  weatherLocation: null,
   pomodoroWorkMin: 25,
   pomodoroBreakMin: 5,
   pomodoroRounds: 4,
@@ -203,6 +211,8 @@ function normalizePanels(parsed: Partial<Preferences>): Partial<Preferences> {
   if (!['YYYY-MM-DD', 'YYYY/MM/DD', 'MM-DD', 'MM/DD', 'M/D'].includes(parsed.compactDateFormat ?? '')) parsed.compactDateFormat = 'M/D'
   if (typeof parsed.compactShowSeconds !== 'boolean') parsed.compactShowSeconds = true
   if (typeof parsed.compactWeatherIcon !== 'boolean') parsed.compactWeatherIcon = false
+  if (typeof parsed.hidePanelArrows !== 'boolean') parsed.hidePanelArrows = false
+  if (parsed.weatherLocation && (typeof parsed.weatherLocation.name !== 'string' || !Number.isFinite(parsed.weatherLocation.latitude) || !Number.isFinite(parsed.weatherLocation.longitude))) parsed.weatherLocation = null
   if (!['normal', 'indicator', 'hide'].includes(parsed.maximizedDisplayMode ?? '')) parsed.maximizedDisplayMode = 'normal'
   if (!['normal', 'indicator', 'hide'].includes(parsed.fullscreenDisplayMode ?? '')) parsed.fullscreenDisplayMode = parsed.hideOnFullscreen ? 'hide' : 'normal'
   if (typeof parsed.fontFamily !== 'string' || parsed.fontFamily.length > 128) parsed.fontFamily = ''
@@ -318,8 +328,13 @@ export const useSettingsStore = defineStore('settings', () => {
       root.style.fontSize = `${(16 * p.fontSize) / 14}px`
     }
     const theme = THEME_COLORS.find((t) => t.id === p.themeColor) ?? THEME_COLORS[0]
-    root.style.setProperty('--primary', theme.primary)
-    root.style.setProperty('--primary-foreground', theme.primaryForeground)
+    if (isSettingsWindow) {
+      root.style.setProperty('--primary', theme.primary)
+      root.style.setProperty('--primary-foreground', theme.primaryForeground)
+    } else {
+      root.style.removeProperty('--primary')
+      root.style.removeProperty('--primary-foreground')
+    }
     const dark =
       p.appearanceMode === 'dark' ||
       (p.appearanceMode === 'system' &&
@@ -339,14 +354,23 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   let saveTimer: number | undefined
+  let saveRevision = 0
+  let saveQueue: Promise<void> = Promise.resolve()
+  async function savePreferences(json: string, revision: number) {
+    saveQueue = saveQueue.then(async () => {
+      if (revision !== saveRevision) return
+      try { await invoke('save_preferences', { json }) }
+      catch { if (revision === saveRevision) toast.error('设置保存失败，重启后可能丢失', { action: { label: '重试', onClick: () => { void savePreferences(JSON.stringify(prefs.value), ++saveRevision) } } }) }
+    })
+    await saveQueue
+  }
   function persist() {
     applyAppearance()
     window.clearTimeout(saveTimer)
+    const revision = ++saveRevision
     saveTimer = window.setTimeout(() => {
       const json = JSON.stringify(prefs.value)
-      invoke('save_preferences', { json }).catch(() => {
-        // 非 Tauri 环境忽略
-      })
+      void savePreferences(json, revision)
       // 广播给其他窗口（含自身，应用同一份偏好）
       emit(PREFS_EVENT, json).catch(() => {})
     }, 200)

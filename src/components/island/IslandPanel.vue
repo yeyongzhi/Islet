@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { invoke } from '@tauri-apps/api/core'
 import { emit as emitEvent } from '@tauri-apps/api/event'
-import { computed, defineAsyncComponent, nextTick, ref, watch, type Component } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import { ChevronLeft, ChevronRight, Pin, PinOff, Settings } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,7 +21,6 @@ const NetspeedPanel = defineAsyncComponent(() => import('./panels/NetspeedPanel.
 const OffworkPanel = defineAsyncComponent(() => import('./panels/OffworkPanel.vue'))
 const ProgressPanel = defineAsyncComponent(() => import('./panels/ProgressPanel.vue'))
 const QuickstartPanel = defineAsyncComponent(() => import('./panels/QuickstartPanel.vue'))
-const RatesPanel = defineAsyncComponent(() => import('./panels/RatesPanel.vue'))
 const SedentaryPanel = defineAsyncComponent(() => import('./panels/SedentaryPanel.vue'))
 const SysinfoPanel = defineAsyncComponent(() => import('./panels/SysinfoPanel.vue'))
 const ToiletPanel = defineAsyncComponent(() => import('./panels/ToiletPanel.vue'))
@@ -34,7 +33,8 @@ const GalleryPanel = defineAsyncComponent(() => import('./panels/GalleryPanel.vu
 const TimerPanel = defineAsyncComponent(() => import('./panels/TimerPanel.vue'))
 const VolumePanel = defineAsyncComponent(() => import('./panels/VolumePanel.vue'))
 const PowerPanel = defineAsyncComponent(() => import('./panels/PowerPanel.vue'))
-import { panelIllustration } from '@/lib/panelIllustrations'
+const UnitsPanel = defineAsyncComponent(() => import('./panels/UnitsPanel.vue'))
+import PanelIllustration from '@/components/island/PanelIllustration.vue'
 import { PANELS, usePanelsStore, type PanelId } from '@/stores/panels'
 import { useIslandStore } from '@/stores/island'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
@@ -53,11 +53,11 @@ const PANEL_COMPONENTS: Record<PanelId, Component> = {
   timer: TimerPanel,
   volume: VolumePanel,
   power: PowerPanel,
+  units: UnitsPanel,
   calendar: CalendarPanel,
   clock: ClockPanel,
   progress: ProgressPanel,
   countdown: CountdownPanel,
-  rates: RatesPanel,
   weather: WeatherPanel,
   monitor: MonitorPanel,
   netspeed: NetspeedPanel,
@@ -102,6 +102,16 @@ const notificationText = computed(() => {
 
 /** 滚轮切换面板：仅在顶部栏 / 底部指示点 / 左右箭头条四个区域生效（节流） */
 let wheelLockUntil = 0
+function handlePanelKey(event: KeyboardEvent) {
+  if (!props.open || !event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+  const target = event.target as HTMLElement | null
+  if (target?.closest('input, textarea, [contenteditable="true"], [role="slider"], [role="combobox"]')) return
+  event.preventDefault()
+  if (event.key === 'ArrowLeft') panels.prev(); else panels.next()
+}
+onMounted(() => window.addEventListener('keydown', handlePanelKey))
+onBeforeUnmount(() => window.removeEventListener('keydown', handlePanelKey))
 function handleWheel(event: WheelEvent) {
   const now = Date.now()
   if (now < wheelLockUntil) return
@@ -159,21 +169,21 @@ async function hideIsland() {
       <DropdownMenu v-if="settings.prefs.quickPanelSwitch">
         <DropdownMenuTrigger as-child>
           <Button variant="ghost" class="absolute left-0 top-0 h-8 max-w-[6.25rem] justify-start gap-1 px-1 text-xs font-semibold" :aria-label="`选择面板，当前：${activePanel?.label ?? '面板'}`" @pointerdown.stop>
-            <img v-if="activePanel" :src="panelIllustration(activePanel.id)" class="size-4 shrink-0 object-contain" alt="" aria-hidden="true" />
+            <PanelIllustration v-if="activePanel" :id="activePanel.id" class="size-4 shrink-0 object-contain" />
             <span class="truncate">{{ activePanel?.label }}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" class="w-44 overflow-hidden">
           <ScrollArea class="h-[min(12rem,calc(var(--reka-dropdown-menu-content-available-height)-0.5rem))]">
             <DropdownMenuItem v-for="panel in panels.visiblePanels" :key="panel.id" @select="panels.select(panel.id)">
-              <img :src="panelIllustration(panel.id)" class="size-4 object-contain" alt="" aria-hidden="true" />
+              <PanelIllustration :id="panel.id" class="size-4 object-contain" />
               {{ panel.label }}<span v-if="settings.prefs.favoritePanels.includes(panel.id)" aria-label="已收藏">★</span><span v-if="panels.activeId === panel.id" class="ml-auto">✓</span>
             </DropdownMenuItem>
           </ScrollArea>
         </DropdownMenuContent>
       </DropdownMenu>
       <div v-else class="absolute left-1 flex max-w-[6rem] items-center gap-1 text-xs font-semibold" :title="activePanel?.label">
-        <img v-if="activePanel" :src="panelIllustration(activePanel.id)" class="size-4 shrink-0 object-contain" alt="" aria-hidden="true" />
+        <PanelIllustration v-if="activePanel" :id="activePanel.id" class="size-4 shrink-0 object-contain" />
         <span class="truncate">{{ activePanel?.label }}</span>
       </div>
       <TooltipProvider :delay-duration="300">
@@ -218,7 +228,7 @@ async function hideIsland() {
 
     <!-- 内容区统一从顶部铺满；左右保留翻页操作区，面板内部不要再添加整体外边距。 -->
     <div class="relative z-10 min-h-0 overflow-hidden">
-      <div class="absolute inset-y-0 inset-x-6">
+      <div class="absolute inset-y-0" :class="settings.prefs.hidePanelArrows ? 'inset-x-2' : 'inset-x-6'">
         <Transition name="panel" mode="out-in">
           <component :is="PANEL_COMPONENTS[previewId ?? panels.activeId]" v-if="(open || renderContent) && (previewId || panels.visiblePanels.length)" :key="previewId ?? panels.activeId" class="h-full w-full min-h-0 min-w-0" />
         </Transition>
@@ -226,6 +236,7 @@ async function hideIsland() {
 
       <!-- 左侧翻页箭头条（滚轮可切换面板） -->
       <div
+        v-if="!settings.prefs.hidePanelArrows"
         class="absolute left-0 top-0 bottom-0 z-10 flex w-4 items-center justify-center"
         @wheel="handleWheel"
       >
@@ -241,6 +252,7 @@ async function hideIsland() {
       </div>
       <!-- 右侧翻页箭头条（滚轮可切换面板） -->
       <div
+        v-if="!settings.prefs.hidePanelArrows"
         class="absolute right-0 top-0 bottom-0 z-10 flex w-4 items-center justify-center"
         @wheel="handleWheel"
       >
@@ -277,9 +289,7 @@ async function hideIsland() {
           />
         </Button>
       </div><ScrollBar orientation="horizontal" class="invisible pointer-events-none" /></ScrollArea>
-      <span v-if="settings.prefs.panelIndicatorStyle === 'text'" class="text-xs font-medium text-foreground">
-        {{ panels.visiblePanels.find((p) => p.id === panels.activeId)?.label }}<span class="ml-1 font-normal text-muted-foreground">{{ panels.index + 1 }} / {{ panels.visiblePanels.length }}</span>
-      </span>
+      <DropdownMenu v-if="settings.prefs.panelIndicatorStyle === 'text'"><DropdownMenuTrigger as-child><Button variant="ghost" class="h-5 px-2 text-xs font-medium" aria-label="选择面板">{{ panels.visiblePanels.find((p) => p.id === panels.activeId)?.label }}<span class="ml-1 font-normal text-muted-foreground">{{ panels.index + 1 }} / {{ panels.visiblePanels.length }}</span></Button></DropdownMenuTrigger><DropdownMenuContent align="center" class="max-h-48 overflow-y-auto"><DropdownMenuItem v-for="panel in panels.visiblePanels" :key="panel.id" @select="panels.select(panel.id)"><PanelIllustration :id="panel.id" class="size-4 object-contain" />{{ panel.label }}<span v-if="panels.activeId === panel.id" class="ml-auto">✓</span></DropdownMenuItem></DropdownMenuContent></DropdownMenu>
     </div>
   </div>
 </template>

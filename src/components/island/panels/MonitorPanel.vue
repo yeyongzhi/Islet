@@ -1,9 +1,9 @@
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { invoke } from '@tauri-apps/api/core'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import PanelDetailIcon from '@/components/island/PanelDetailIcon.vue'
 import { Progress } from '@/components/ui/progress'
 import TrendLine from '@/components/island/TrendLine.vue'
+import { useCompactMetricsStore } from '@/stores/compactMetrics'
 
 interface SystemStats {
   cpu_pct: number
@@ -12,29 +12,14 @@ interface SystemStats {
   mem_pct: number
 }
 
-const stats = ref<SystemStats | null>(null)
-const failed = ref(false)
+const metrics = useCompactMetricsStore()
+const stats = computed<SystemStats | null>(() => metrics.stats)
+const failed = computed(() => metrics.statsError)
 const cpuHistory = ref<number[]>([])
 const memoryHistory = ref<number[]>([])
-let timer: number | undefined
-
-async function poll() {
-  try {
-    stats.value = await invoke<SystemStats>('get_system_stats')
-    cpuHistory.value = [...cpuHistory.value, stats.value.cpu_pct].slice(-30)
-    memoryHistory.value = [...memoryHistory.value, stats.value.mem_pct].slice(-30)
-    failed.value = false
-  } catch {
-    failed.value = true
-  }
-}
-
-onMounted(() => {
-  poll()
-  timer = window.setInterval(poll, 2000)
-})
-
-onBeforeUnmount(() => window.clearInterval(timer))
+watch(stats, value => { if (value) { cpuHistory.value = [...cpuHistory.value, value.cpu_pct].slice(-30); memoryHistory.value = [...memoryHistory.value, value.mem_pct].slice(-30) } }, { immediate: true })
+onMounted(() => metrics.acquireStats())
+onBeforeUnmount(() => metrics.releaseStats())
 
 const cpuColor = computed(() => {
   const v = stats.value?.cpu_pct ?? 0

@@ -42,7 +42,7 @@ const summary = computed(() => {
     <div class="flex w-[40%] min-h-0 shrink-0 flex-col">
       <div class="h-full min-h-0  ">
         <div class="flex h-full flex-col justify-between gap-1 p-1">
-          <div class="flex items-center gap-1">
+          <div class="flex min-h-0 flex-col items-start gap-0.5">
             <PanelDetailIcon :name="weatherIcon(weather.data?.current.weatherCode ?? 0)" class="size-16" />
             <div>
               <p class="text-2xl font-semibold leading-7 tabular-nums">

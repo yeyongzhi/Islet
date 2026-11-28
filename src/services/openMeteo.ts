@@ -67,17 +67,21 @@ export function weatherIcon(code: number): string {
  * 通过 Open-Meteo 获取天气（免费、无需 API Key）：
  * 地理编码 + 当前天气 + 未来 6 天预报
  */
-export async function fetchWeather(city: string): Promise<WeatherBundle> {
+export interface WeatherLocation { name: string; latitude: number; longitude: number; admin1?: string; country?: string }
+export async function searchCities(city: string): Promise<WeatherLocation[]> {
   const geoUrl =
     'https://geocoding-api.open-meteo.com/v1/search?name=' +
     encodeURIComponent(city) +
-    '&count=1&language=zh&format=json'
+    '&count=10&language=zh&format=json'
   const geoRes = await fetch(geoUrl)
   if (!geoRes.ok) throw new Error('城市查询失败，请稍后重试')
   const geo = (await geoRes.json()) as {
-    results?: { name: string; latitude: number; longitude: number }[]
+    results?: WeatherLocation[]
   }
-  const loc = geo.results?.[0]
+  return geo.results ?? []
+}
+export async function fetchWeather(city: string, selected?: WeatherLocation | null): Promise<WeatherBundle> {
+  const loc = selected ?? (await searchCities(city))[0]
   if (!loc) throw new Error(`未找到城市「${city}」`)
 
   const url =

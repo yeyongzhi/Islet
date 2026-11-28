@@ -146,6 +146,8 @@ async function setAutoStart(enabled: boolean) {
         </Select>
       </div>
       <div class="flex items-center justify-between gap-3"><div><p class="text-sm">快捷切换面板</p><p class="text-xs text-muted-foreground">在面板顶部显示快捷选择入口</p></div><Switch :model-value="settings.prefs.quickPanelSwitch" aria-label="快捷切换面板" @update:model-value="v => settings.set('quickPanelSwitch', !!v)" /></div>
+      <p class="text-xs text-muted-foreground">点击底部点位或文字可切换面板；在顶部或底部滚动鼠标滚轮也可切换。灵动岛获得焦点时，可按 Ctrl + 左右方向键切换；启用顶部快捷入口可从列表选择。</p>
+      <div class="flex items-center justify-between gap-3"><div><p class="text-sm">隐藏两侧翻页按钮</p><p class="text-xs text-muted-foreground">隐藏后拓宽面板内容区，仍可通过底部导航切换面板</p></div><Switch :model-value="settings.prefs.hidePanelArrows" aria-label="隐藏两侧翻页按钮" @update:model-value="v => settings.set('hidePanelArrows', !!v)" /></div>
       <div class="flex items-center justify-between gap-3">
         <div><p class="text-sm">底部切换显示样式</p><p class="text-xs text-muted-foreground">选择面板导航显示为点位或文字</p></div>
         <Select :model-value="settings.prefs.panelIndicatorStyle" @update:model-value="(v) => settings.set('panelIndicatorStyle', v as PanelIndicatorStyle)">

@@ -52,7 +52,8 @@ async function openDisk(disk: DiskInfo) {
 
 <template>
   <div class="flex h-full min-h-0 min-w-0 flex-col gap-2">
-    <template v-if="status === 'ready' && disks.length">
+    <template v-if="disks.length">
+      <div v-if="status === 'error'" class="flex items-center justify-between text-xs text-muted-foreground" role="status"><span>更新失败 · 显示旧数据</span><Button variant="ghost" size="sm" class="h-6" @click="poll">重试</Button></div>
       <div class="flex min-w-0 items-center gap-3">
         <Progress :model-value="totalPercent" class="h-1.5 min-w-0 flex-1" aria-label="磁盘总使用空间" :aria-valuetext="`已用 ${capacity(used)}，总共 ${capacity(total)}`" />
         <span class="shrink-0 text-xs text-muted-foreground tabular-nums">已用 {{ capacity(used) }} / {{ capacity(total) }}</span>
@@ -92,9 +93,7 @@ async function openDisk(disk: DiskInfo) {
       </div>
 
     </template>
-    <p v-else class="m-auto text-center text-sm text-muted-foreground">
-      {{ status === 'loading' ? '加载中…' : status === 'error' ? '磁盘信息读取失败' : '未发现可用磁盘' }}
-    </p>
+    <div v-else class="m-auto flex flex-col items-center gap-2 text-center text-sm text-muted-foreground" role="status"><p>{{ status === 'loading' ? '加载中…' : status === 'error' ? '磁盘信息读取失败' : '未发现可用磁盘' }}</p><Button v-if="status === 'error'" variant="secondary" size="sm" @click="poll">重试</Button></div>
   </div>
 </template>
 

@@ -72,13 +72,16 @@ const segs = computed(() => {
 
 <template>
   <!-- 时间进度：今天/本周/本月/本年进度条 -->
-  <div class="flex h-full min-h-0 flex-col gap-2">
-    <div v-for="seg in segs" :key="seg.label" class="flex min-h-0 flex-1 items-center gap-4">
-      <span class="w-9 shrink-0 text-sm font-medium text-foreground">{{ seg.label }}</span>
-      <Progress :model-value="seg.pct" :aria-label="`${seg.label}时间进度`" class="h-2 min-w-0 flex-1 bg-muted [&_[data-slot=progress-indicator]]:bg-primary/60" />
-      <span class="w-36 shrink-0 whitespace-nowrap text-right text-sm text-muted-foreground tabular-nums">
-        {{ seg.pct.toFixed(0) }}% · {{ seg.remain }}
-      </span>
+  <div class="flex h-full min-h-0 flex-col justify-center gap-1.5">
+    <div v-for="seg in segs" :key="seg.label" class="flex min-h-0 flex-1 items-center gap-2.5 rounded-lg bg-muted/40 px-2.5 py-1">
+      <span class="w-8 shrink-0 text-xs font-medium text-foreground">{{ seg.label }}</span>
+      <div class="flex min-w-0 flex-1 flex-col gap-1">
+        <div class="flex items-baseline justify-between gap-2 tabular-nums">
+          <span class="text-xs font-semibold text-primary">{{ seg.pct.toFixed(0) }}%</span>
+          <span class="truncate text-xs text-muted-foreground">{{ seg.remain }}</span>
+        </div>
+        <Progress :model-value="seg.pct" :aria-label="`${seg.label}时间进度`" class="h-1.5 bg-muted" />
+      </div>
     </div>
   </div>
 </template>
