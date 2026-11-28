@@ -11,7 +11,16 @@ const props = defineProps<{ preview?: boolean }>()
 const now = computed(() => props.preview ? new Date(2026, 10, 25, 10, 8, 30) : island.now)
 
 const hour24 = computed(() => settings.getPanelOption('clock', 'hour24', PANEL_OPTIONS.clock[0]!.default))
-const showSeconds = computed(() => settings.getPanelOption('clock', 'showSeconds', PANEL_OPTIONS.clock[1]!.default))
+
+const period = computed(() => {
+  const hour = now.value.getHours()
+  if (hour < 6) return '夜晚'
+  if (hour < 11) return '早晨'
+  if (hour < 13) return '中午'
+  if (hour < 18) return '下午'
+  if (hour < 20) return '傍晚'
+  return '夜晚'
+})
 
 const WEEKDAY_TEXT = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'] as const
 
@@ -24,7 +33,7 @@ const timeParts = computed(() => {
   }
   const hh = h.toString().padStart(2, '0')
   const mm = d.getMinutes().toString().padStart(2, '0')
-  const seconds = showSeconds.value ? d.getSeconds().toString().padStart(2, '0') : ''
+  const seconds = d.getSeconds().toString().padStart(2, '0')
   return { main: `${hh}:${mm}`, seconds, suffix }
 })
 
@@ -54,18 +63,18 @@ const lunarInfo = computed(() => {
 
 <template>
   <div class="flex h-full min-h-0 flex-col justify-between gap-2">
-    <div class="flex min-w-0 items-center justify-between gap-3">
-      <div class="min-w-0 flex-1">
-        <p class="mb-1 text-xs font-medium text-muted-foreground">{{ preview ? '示例时间' : '当前时间' }}</p>
+    <div class="grid min-w-0 flex-1 grid-cols-2 items-center">
+      <div class="min-w-0 pr-3">
+        <p class="mb-2 text-sm font-medium text-foreground">{{ period }}</p>
         <p class="flex items-baseline whitespace-nowrap leading-none tabular-nums" :aria-label="`${timeParts.main}${timeParts.seconds ? `:${timeParts.seconds}` : ''} ${timeParts.suffix}`">
           <span class="text-[2.25rem] font-semibold tracking-tight">{{ timeParts.main }}</span>
-          <span v-if="timeParts.seconds" class="ml-0.5 text-base font-medium text-muted-foreground">:{{ timeParts.seconds }}</span>
+          <span v-if="timeParts.seconds" class="ml-0.5 text-lg font-medium text-foreground">:{{ timeParts.seconds }}</span>
           <span v-if="timeParts.suffix" class="ml-1 text-xs font-medium text-muted-foreground">{{ timeParts.suffix }}</span>
         </p>
       </div>
-      <div class="shrink-0 border-l border-border pl-3 text-right">
-        <p class="whitespace-nowrap text-[10px] text-muted-foreground">{{ dateParts.month }}</p>
-        <p class="mt-1 flex items-baseline justify-end gap-1.5 leading-none"><span class="text-2xl font-semibold tabular-nums">{{ dateParts.day }}</span><span class="text-xs text-muted-foreground">{{ dateParts.weekday }}</span></p>
+      <div class="min-w-0 border-l border-border pl-4">
+        <p class="whitespace-nowrap text-sm font-medium text-foreground">{{ dateParts.month }}</p>
+        <p class="mt-2 flex items-baseline gap-2 leading-none"><span class="text-3xl font-semibold tabular-nums">{{ dateParts.day }}</span><span class="text-sm font-medium text-foreground">{{ dateParts.weekday }}</span></p>
       </div>
     </div>
     <div class="flex min-w-0 flex-col gap-1 border-t border-border pt-2 text-xs">

@@ -1,6 +1,6 @@
 [package]
 name = "islet"
-version = "0.1.0-beta.6"
+version = "0.1.0-beta.7"
 description = "Islet（灵岛）- Windows 桌面灵动岛与轻量信息工具"
 authors = ["Aurora"]
 license = ""
@@ -40,6 +40,9 @@ windows = { version = "0.62", features = [
     "Media_Control",
     "Win32_Media_Audio",
     "Win32_Media_Audio_Endpoints",
+    "Win32_Devices_FunctionDiscovery",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_UI_Shell_PropertiesSystem",
     "Media_Playback",
     "Foundation",
     "Storage_Streams",

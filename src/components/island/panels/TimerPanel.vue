@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import illustration from '@/assets/panel-illustrations/timer.png'
 import { computed, ref, watch } from 'vue'
-import { Clock3, Pause, Play, RotateCcw } from 'lucide-vue-next'
+import PanelDetailIcon from '@/components/island/PanelDetailIcon.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
@@ -23,14 +24,14 @@ function toggle() {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 items-stretch gap-4">
-    <div class="flex h-full w-20 shrink-0 items-center justify-center rounded-3xl bg-primary/10 text-primary" aria-hidden="true"><Clock3 class="size-7" /></div>
+  <div class="flex h-full min-h-0 items-stretch gap-2">
+    <img :src="illustration" class="size-20 shrink-0 self-center object-contain" alt="" aria-hidden="true" />
     <div class="flex min-h-0 min-w-0 flex-1 flex-col justify-between gap-1">
       <div class="flex items-center justify-between gap-2"><span class="text-xs text-muted-foreground">{{ timer.completed ? '时间到' : timer.running ? '计时中' : '倒计时' }}</span><div class="flex items-center gap-1"><Input v-model="input" type="number" min="1" max="1440" step="1" class="h-7 w-16 px-2 text-xs" :disabled="timer.running" aria-label="倒计时分钟数" @change="applyMinutes" /><span class="text-xs text-muted-foreground">分钟</span></div></div>
       <p class="text-3xl font-semibold leading-none tabular-nums">{{ timer.format(timer.remaining) }}</p>
       <Progress :model-value="progress" class="h-1" aria-label="倒计时进度" />
       <p v-if="error" class="text-xs text-destructive">{{ error }}</p>
-      <div class="flex gap-2"><Button size="sm" class="h-8 flex-1" @click="toggle"><Pause v-if="timer.running" class="size-4" /><Play v-else class="size-4" />{{ timer.running ? '暂停' : '开始' }}</Button><Button variant="secondary" size="sm" class="h-8" @click="timer.reset"><RotateCcw class="size-4" />重置</Button></div>
+      <div class="flex gap-2"><Button variant="secondary" size="sm" class="h-8 flex-1" @click="toggle"><PanelDetailIcon name="pause" style="width: 20px; height: 20px" v-if="timer.running" /><PanelDetailIcon name="play" style="width: 20px; height: 20px" v-else />{{ timer.running ? '暂停' : '开始' }}</Button><Button variant="secondary" size="sm" class="h-8" @click="timer.reset"><PanelDetailIcon name="reset" style="width: 20px; height: 20px" />重置</Button></div>
     </div>
   </div>
 </template>

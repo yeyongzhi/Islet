@@ -2,7 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { toast } from 'vue-sonner'
-import { Monitor, Rocket, Trash2 } from 'lucide-vue-next'
+import PanelDetailIcon from '@/components/island/PanelDetailIcon.vue'
+import illustration from '@/assets/panel-illustrations/quickstart.png'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -19,8 +20,8 @@ try { iconCache = JSON.parse(localStorage.getItem(cacheKey) || '{}') } catch { /
 const icons = ref<Record<string, string>>({})
 function shellIcon(path: string) {
   switch (path.toLowerCase()) {
-    case 'shell:mycomputerfolder': return Monitor
-    case 'shell:recyclebinfolder': return Trash2
+    case 'shell:mycomputerfolder': return 'sysinfo'
+    case 'shell:recyclebinfolder': return 'trash'
     default: return null
   }
 }
@@ -52,14 +53,14 @@ function open(path: string) {
       :aria-label="it.name"
       @click="open(it.path)"
     >
-      <component :is="shellIcon(it.path)" v-if="shellIcon(it.path)" class="size-4" aria-hidden="true" />
-      <img v-else-if="icons[it.id]" :src="icons[it.id]" alt="" class="size-4 object-contain" />
-      <Rocket v-else class="size-4 text-muted-foreground" aria-hidden="true" />
+      <PanelDetailIcon style="width: 24px; height: 24px" v-if="shellIcon(it.path)" :name="shellIcon(it.path)!" />
+      <img v-else-if="icons[it.id]" :src="icons[it.id]" alt="" class="size-6 object-contain" />
+      <PanelDetailIcon v-else name="quickstart" style="width: 24px; height: 24px" />
     </Button></TooltipTrigger><TooltipContent>{{ it.name }}</TooltipContent></Tooltip>
 
     <div v-if="!items.length" class="col-span-4 flex h-full items-center justify-center">
       <div class="flex flex-col items-center gap-1.5">
-        <Rocket class="size-6 text-muted-foreground" aria-hidden="true" />
+        <img :src="illustration" class="size-16 object-contain" alt="" aria-hidden="true" />
         <p class="text-xs text-muted-foreground">在卡片详情里添加常用启动项</p>
       </div>
     </div>

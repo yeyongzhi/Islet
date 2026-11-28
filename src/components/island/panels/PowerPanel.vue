@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { Battery, BatteryCharging, PlugZap } from 'lucide-vue-next'
+import illustration from '@/assets/panel-illustrations/power.png'
 import { Progress } from '@/components/ui/progress'
 
 interface PowerState { hasBattery: boolean | null; percent: number | null; ac: boolean | null; charging: boolean | null; remainingSeconds: number | null; batterySaver: boolean; powerPlan: string | null }
@@ -30,7 +30,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
 
 <template>
   <div class="flex h-full min-h-0 items-stretch gap-4">
-    <div class="flex h-full w-20 shrink-0 items-center justify-center rounded-3xl bg-primary/10 text-primary" aria-hidden="true"><PlugZap v-if="state?.hasBattery === false" class="size-7" /><BatteryCharging v-else-if="state?.charging" class="size-7" /><Battery v-else class="size-7" /></div>
+    <img :src="illustration" class="size-20 shrink-0 self-center object-contain" alt="" aria-hidden="true" />
     <div class="flex min-h-0 min-w-0 flex-1 flex-col justify-between gap-1"><p class="text-xs text-muted-foreground">{{ failed ? '读取电源状态失败' : status }}</p><p class="text-3xl font-semibold leading-none tabular-nums">{{ state?.percent == null ? '—' : `${state.percent}%` }}</p><Progress v-if="state?.percent != null" :model-value="state.percent" class="h-1.5" aria-label="电池电量" /><p class="truncate text-xs text-muted-foreground">{{ detail }}</p><p v-if="state?.powerPlan" class="truncate text-xs text-muted-foreground" :title="state.powerPlan">电源计划 · {{ state.powerPlan }}</p></div>
   </div>
 </template>

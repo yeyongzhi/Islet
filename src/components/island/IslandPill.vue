@@ -1,12 +1,13 @@
 <script lang="ts" setup>
-import { Battery, Cloud, CloudFog, CloudLightning, CloudRain, CloudSnow, CloudSun, Sun, Timer } from 'lucide-vue-next'
+import { Battery, Timer } from 'lucide-vue-next'
+import PanelDetailIcon from '@/components/island/PanelDetailIcon.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { compactLayout, compactWidth } from '@/lib/compactLayout'
 import { invoke } from '@tauri-apps/api/core'
 import RobotFace from '@/components/island/RobotFace.vue'
 import { Button } from '@/components/ui/button'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
-import { weatherText } from '@/services/openMeteo'
+import { weatherIcon, weatherText } from '@/services/openMeteo'
 import { useIslandStore } from '@/stores/island'
 import { usePomodoroStore } from '@/stores/pomodoro'
 import { COMPACT_ITEMS, useSettingsStore, type CompactItem } from '@/stores/settings'
@@ -73,16 +74,9 @@ const pillTime = computed(() => {
 })
 
 const weatherTitle = computed(() => weather.data ? `${weather.data.city} · ${weatherText(weather.data.current.weatherCode)} · ${weather.updatedAt ? new Date(weather.updatedAt).toLocaleString() : ''}` : itemText('weather'))
-const weatherIcon = computed(() => {
+const weatherIconName = computed(() => {
   const code = props.editMode ? 2 : weather.data?.current.weatherCode
-  if (code === undefined) return null
-  if (code === 0) return Sun
-  if (code <= 2) return CloudSun
-  if (code === 3) return Cloud
-  if (code === 45 || code === 48) return CloudFog
-  if (code >= 71 && code <= 77 || code === 85 || code === 86) return CloudSnow
-  if (code >= 95) return CloudLightning
-  return CloudRain
+  return code === undefined ? null : weatherIcon(code)
 })
 </script>
 
@@ -100,7 +94,7 @@ const weatherIcon = computed(() => {
           <ContextMenuTrigger as-child>
             <Button variant="ghost" :data-compact-item="item.id" class="absolute top-0 h-full min-w-0 touch-none gap-1 rounded-md px-0 transition-none hover:bg-transparent dark:hover:bg-transparent" :class="selectedItem === item.id ? 'cursor-grab outline-1 outline-dashed outline-primary -outline-offset-1 active:cursor-grabbing' : 'cursor-pointer'" :style="{ left: `${item.left / layoutWidth * 100}%`, width: `${item.width / layoutWidth * 100}%` }" :aria-label="`${label(item.id)}，选中后拖动或按左右方向键调整位置`" :aria-pressed="selectedItem === item.id" @click="emit('select', item.id)" @contextmenu="emit('select', item.id)" @pointerdown="emit('dragStart', item.id, $event)" @keydown.left.prevent="selectedItem === item.id && emit('move', item.id, -1)" @keydown.right.prevent="selectedItem === item.id && emit('move', item.id, 1)" @keydown.esc.stop="emit('select', null)">
               <RobotFace v-if="item.id === 'face'" class="size-8 shrink-0" />
-              <component :is="weatherIcon" v-if="item.id === 'weather' && settings.prefs.compactWeatherIcon && weatherIcon" class="size-4 shrink-0" aria-hidden="true" />
+              <PanelDetailIcon v-if="item.id === 'weather' && settings.prefs.compactWeatherIcon && weatherIconName" :name="weatherIconName" />
               <span v-if="item.id !== 'face'" class="truncate font-bold tabular-nums" :class="['time', 'date', 'weekday'].includes(item.id) ? 'text-base' : 'text-xs'">{{ itemText(item.id) }}</span>
             </Button>
           </ContextMenuTrigger>
@@ -112,7 +106,7 @@ const weatherIcon = computed(() => {
         </ContextMenu>
         <div v-else class="absolute top-0 flex h-full min-w-0 items-center justify-center gap-1" :style="{ left: `${item.left / layoutWidth * 100}%`, width: `${item.width / layoutWidth * 100}%` }">
           <RobotFace v-if="item.id === 'face'" class="size-8 shrink-0" />
-          <component :is="weatherIcon" v-if="item.id === 'weather' && settings.prefs.compactWeatherIcon && weatherIcon" class="size-4 shrink-0" aria-hidden="true" />
+          <PanelDetailIcon v-if="item.id === 'weather' && settings.prefs.compactWeatherIcon && weatherIconName" :name="weatherIconName" />
           <span v-if="item.id !== 'face'" class="truncate font-bold tabular-nums" :class="['time', 'date', 'weekday'].includes(item.id) ? 'text-base' : 'text-xs'" :title="item.id === 'weather' ? weatherTitle : itemText(item.id)">{{ itemText(item.id) }}</span>
         </div>
       </template>
@@ -122,7 +116,7 @@ const weatherIcon = computed(() => {
     <template v-for="id in settings.prefs.compactItems" :key="id">
       <RobotFace v-if="id === 'face'" class="size-8 shrink-0" />
       <div v-else class="flex min-w-0 max-w-full items-center gap-1 tabular-nums" :class="['time', 'date', 'weekday'].includes(id) ? 'text-base font-bold' : 'text-xs font-semibold'">
-        <component :is="weatherIcon" v-if="id === 'weather' && settings.prefs.compactWeatherIcon && weatherIcon" class="size-4 shrink-0" aria-hidden="true" />
+        <PanelDetailIcon v-if="id === 'weather' && settings.prefs.compactWeatherIcon && weatherIconName" :name="weatherIconName" />
         <Battery v-if="id === 'battery'" class="size-4 shrink-0" />
         <span class="truncate" :title="id === 'weather' ? weatherTitle : itemText(id)">{{ itemText(id) }}</span>
       </div>

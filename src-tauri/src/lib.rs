@@ -350,6 +350,77 @@ fn with_default_audio<T>(operation: impl FnOnce(&windows::Win32::Media::Audio::E
     }
 }
 
+// Windows' undocumented policy interface is used only to set the default output.
+#[repr(transparent)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct AudioPolicy(windows::core::IUnknown);
+impl windows::core::imp::CanInto<windows::core::IUnknown> for AudioPolicy {}
+unsafe impl windows::core::Interface for AudioPolicy {
+    type Vtable = AudioPolicyVtable;
+    const IID: windows::core::GUID = windows::core::GUID::from_u128(0xf8679f50_850a_41cf_9c72_430f290290c8);
+}
+#[repr(C)]
+struct AudioPolicyVtable {
+    base: windows::core::IUnknown_Vtbl,
+    unused: [usize; 10],
+    set_default: unsafe extern "system" fn(*mut std::ffi::c_void, windows::core::PCWSTR, windows::Win32::Media::Audio::ERole) -> windows::core::HRESULT,
+}
+
+fn audio_devices() -> Result<serde_json::Value, String> {
+    use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
+    use windows::Win32::Media::Audio::{IMMDeviceEnumerator, MMDeviceEnumerator, DEVICE_STATE_ACTIVE, eMultimedia, eRender};
+    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL, COINIT_MULTITHREADED, STGM_READ};
+    use windows::Win32::System::Com::StructuredStorage::PropVariantToStringAlloc;
+    unsafe {
+        CoInitializeEx(None, COINIT_MULTITHREADED).ok().map_err(|e| e.to_string())?;
+        struct Guard;
+        impl Drop for Guard { fn drop(&mut self) { unsafe { CoUninitialize() } } }
+        let _guard = Guard;
+        let enumerator: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).map_err(|e| e.to_string())?;
+        let default = enumerator.GetDefaultAudioEndpoint(eRender, eMultimedia).ok().and_then(|d| d.GetId().ok()).map(|v| { let s = v.to_string().unwrap_or_default(); CoTaskMemFree(Some(v.0.cast())); s });
+        let devices = enumerator.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE).map_err(|e| e.to_string())?;
+        let mut items = Vec::new();
+        for i in 0..devices.GetCount().map_err(|e| e.to_string())? {
+            let device = devices.Item(i).map_err(|e| e.to_string())?;
+            let ptr = device.GetId().map_err(|e| e.to_string())?;
+            let id = ptr.to_string().map_err(|e| e.to_string());
+            CoTaskMemFree(Some(ptr.0.cast()));
+            let props = device.OpenPropertyStore(STGM_READ).map_err(|e| e.to_string())?;
+            let value = props.GetValue(&PKEY_Device_FriendlyName).map_err(|e| e.to_string())?;
+            let ptr = PropVariantToStringAlloc(&value).map_err(|e| e.to_string())?;
+            let name = ptr.to_string().map_err(|e| e.to_string());
+            CoTaskMemFree(Some(ptr.0.cast()));
+            items.push(serde_json::json!({ "id": id?, "name": name? }));
+        }
+        Ok(serde_json::json!({ "devices": items, "defaultId": default }))
+    }
+}
+#[tauri::command]
+async fn get_output_devices() -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(audio_devices).await.map_err(|e| e.to_string())?
+}
+#[tauri::command]
+async fn set_output_device(id: String) -> Result<(), String> {
+    if id.is_empty() || id.contains('\0') { return Err("设备标识无效".into()); }
+    tauri::async_runtime::spawn_blocking(move || {
+        use windows::core::{GUID, Interface, PCWSTR};
+        use windows::Win32::Media::Audio::{eConsole, eMultimedia};
+        use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_ALL, COINIT_MULTITHREADED};
+        unsafe {
+            CoInitializeEx(None, COINIT_MULTITHREADED).ok().map_err(|e| e.to_string())?;
+            struct Guard;
+            impl Drop for Guard { fn drop(&mut self) { unsafe { CoUninitialize() } } }
+            let _guard = Guard;
+            let policy: AudioPolicy = CoCreateInstance(&GUID::from_u128(0x870af99c_171d_4f9e_af0d_e63df40c2bc9), None, CLSCTX_ALL).map_err(|e| e.to_string())?;
+            let wide: Vec<u16> = id.encode_utf16().chain(std::iter::once(0)).collect();
+            for role in [eMultimedia, eConsole] {
+                (Interface::vtable(&policy).set_default)(Interface::as_raw(&policy), PCWSTR(wide.as_ptr()), role).ok().map_err(|e| e.to_string())?;
+            }
+            Ok(())
+        }
+    }).await.map_err(|e| e.to_string())?
+}
+
 #[cfg(test)]
 mod system_panel_tests {
     use super::*;
@@ -374,6 +445,23 @@ mod system_panel_tests {
         let state = get_network_connection().expect("应能读取 Windows 网络状态");
         assert!(state["connected"].is_boolean());
         if state["connected"] == true { assert!(state["internet"].is_boolean()); }
+    }
+
+    #[test]
+    fn output_devices_have_ids_and_names_when_available() {
+        match audio_devices() {
+            Ok(result) => {
+                let devices = result["devices"].as_array().expect("设备列表应为数组");
+                for device in devices {
+                    assert!(!device["id"].as_str().unwrap_or_default().is_empty());
+                    assert!(!device["name"].as_str().unwrap_or_default().is_empty());
+                }
+                if let Some(default_id) = result["defaultId"].as_str() {
+                    assert!(devices.iter().any(|device| device["id"] == default_id));
+                }
+            }
+            Err(error) => println!("当前环境无法读取音频设备：{error}"),
+        }
     }
 
     #[test]
@@ -1412,19 +1500,21 @@ fn volume_monitor(app: AppHandle) {
     let Ok(enumerator) = enumerator_result else {
         return;
     };
-    let Ok(device) = (unsafe {
-        enumerator.GetDefaultAudioEndpoint(eRender, eMultimedia)
-    }) else {
-        return;
-    };
-    let Ok(volume) = (unsafe { device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None) }) else {
-        return;
-    };
-
     let mut last = -1i32;
     let mut last_mute = -1i32;
+    let mut last_device = String::new();
     loop {
         std::thread::sleep(std::time::Duration::from_millis(300));
+        let Ok(device) = (unsafe { enumerator.GetDefaultAudioEndpoint(eRender, eMultimedia) }) else {
+            last = -1;
+            last_device.clear();
+            continue;
+        };
+        let Ok(id_ptr) = (unsafe { device.GetId() }) else { continue };
+        let id = unsafe { id_ptr.to_string().unwrap_or_default() };
+        unsafe { windows::Win32::System::Com::CoTaskMemFree(Some(id_ptr.0.cast())) };
+        if last_device != id { last_device = id; last = -1; }
+        let Ok(volume) = (unsafe { device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None) }) else { continue };
         let Ok(v) = (unsafe { volume.GetMasterVolumeLevelScalar() }) else {
             continue;
         };
@@ -1529,6 +1619,8 @@ pub fn run() {
             get_network_speed,
             get_network_connection,
             get_power_state,
+            get_output_devices,
+            set_output_device,
             get_output_volume,
             set_output_volume,
             get_disks,

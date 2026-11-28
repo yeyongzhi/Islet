@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
-import { CalendarX2, Gift, Heart, Star } from 'lucide-vue-next'
+import PanelDetailIcon from '@/components/island/PanelDetailIcon.vue'
 import { useCountdownStore } from '@/stores/panelData'
-import { Card, CardContent } from '@/components/ui/card'
+import illustration from '@/assets/panel-illustrations/countdown.png'
 
 const countdown = useCountdownStore()
 countdown.load()
@@ -18,18 +18,18 @@ function label(days: number) {
 const entries = computed(() => countdown.sorted().slice(0, 4))
 
 const nearest = computed(() => entries.value.find((e) => countdown.daysLeft(e.date, e.repeat) >= 0))
-const icons = { calendar: CalendarX2, gift: Gift, heart: Heart, star: Star }
+const icons = { calendar: 'calendar', gift: 'gift', heart: 'heart', star: 'star' }
 const colors = { violet: 'text-violet-500', blue: 'text-blue-500', green: 'text-emerald-500', orange: 'text-orange-500', red: 'text-red-500' }
 </script>
 
 <template>
   <!-- 倒数日：最近的目标日 + 其余列表 -->
-  <Card class="h-full gap-0 bg-muted/25 py-0 shadow-none">
-  <CardContent class="flex h-full items-stretch gap-3 p-2">
+  <div class="h-full gap-0  py-0 ">
+  <div class="flex h-full items-stretch gap-3 p-2">
     <div
-      class="flex h-full w-20 shrink-0 flex-col items-center justify-center rounded-xl bg-primary/10"
+      class="flex h-full w-24 shrink-0 flex-col items-center justify-center border-r border-border"
     >
-      <component :is="nearest ? icons[nearest.icon] : CalendarX2" class="size-4" :class="nearest ? colors[nearest.color] : 'text-primary'" aria-hidden="true" />
+      <img :src="illustration" class="size-20 shrink-0 object-contain" alt="" aria-hidden="true" />
       <p class="mt-1.5 text-3xl font-semibold text-primary tabular-nums">
         {{ nearest ? Math.max(0, countdown.daysLeft(nearest.date, nearest.repeat)) : '--' }}
       </p>
@@ -40,10 +40,10 @@ const colors = { violet: 'text-violet-500', blue: 'text-blue-500', green: 'text-
         <div
           v-for="e in entries"
           :key="e.id"
-          class="flex items-center justify-between gap-2 rounded-lg border border-border px-2.5 py-1.5"
+          class="flex items-center justify-between gap-2 border-b border-border px-2.5 py-1.5"
         >
-          <component :is="icons[e.icon]" class="size-4 shrink-0" :class="colors[e.color]" aria-hidden="true" />
-          <span class="min-w-0 flex-1 truncate text-sm">{{ e.name }}</span>
+          <PanelDetailIcon :name="icons[e.icon]" />
+          <span class="min-w-0 flex-1 truncate text-sm" :class="colors[e.color]">{{ e.name }}</span>
           <span
             class="shrink-0 text-xs tabular-nums"
             :class="countdown.daysLeft(e.date, e.repeat) >= 0 && countdown.daysLeft(e.date, e.repeat) <= 3 ? 'text-red-400 font-semibold' : 'text-muted-foreground'"
@@ -54,6 +54,6 @@ const colors = { violet: 'text-violet-500', blue: 'text-blue-500', green: 'text-
       </template>
       <p v-else class="text-sm text-muted-foreground">在卡片详情里添加倒数日</p>
     </div>
-  </CardContent>
-  </Card>
+  </div>
+  </div>
 </template>

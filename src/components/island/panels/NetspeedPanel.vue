@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { ArrowDown, ArrowUp, Network, Wifi, WifiOff } from 'lucide-vue-next'
-import { Card, CardContent } from '@/components/ui/card'
+import PanelDetailIcon from '@/components/island/PanelDetailIcon.vue'
+import networkImage from '@/assets/panel-illustrations/network.png'
 import TrendLine from '@/components/island/TrendLine.vue'
 
 interface NetworkState { connected: boolean; internet?: boolean; wifi?: boolean; name?: string | null; signal?: number | null }
@@ -60,22 +60,22 @@ onBeforeUnmount(() => { window.clearInterval(connectionTimer); window.clearInter
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col gap-2">
+  <div class="flex h-full min-h-0 min-w-0 flex-col gap-1">
     <div class="flex min-w-0 shrink-0 items-center gap-2">
-      <div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary" aria-hidden="true"><WifiOff v-if="connection && !connection.connected" class="size-4" /><Wifi v-else-if="connection?.wifi" class="size-4" /><Network v-else class="size-4" /></div>
+      <img :src="networkImage" class="size-8 shrink-0 object-contain" alt="" aria-hidden="true" />
       <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold" :title="connection?.name ?? undefined">{{ connection?.name || (connection?.connected ? '当前网络' : '网络连接') }}</p><p class="truncate text-xs text-muted-foreground" role="status">{{ connectionText }}</p></div>
       <span class="shrink-0 text-[10px] text-muted-foreground" title="网速为所有网卡流量之和">全部网卡</span>
     </div>
-    <div class="grid min-h-0 flex-1 grid-cols-2 gap-2">
-      <Card v-for="item in [{ label: '下载', icon: ArrowDown, value: speed?.down_kbps, history: downHistory }, { label: '上传', icon: ArrowUp, value: speed?.up_kbps, history: upHistory }]" :key="item.label" class="min-h-0 min-w-0 gap-0 bg-muted/30 py-0 shadow-none">
-        <CardContent class="flex h-full min-h-0 flex-col justify-between gap-0.5 p-2">
-          <p class="flex items-center gap-1 text-xs text-muted-foreground"><component :is="item.icon" class="size-4 text-primary" aria-hidden="true" />{{ item.label }}</p>
+    <div class="grid min-h-0 flex-1 grid-cols-2 divide-x divide-border">
+      <div v-for="item in [{ label: '下载', icon: 'download', value: speed?.down_kbps, history: downHistory }, { label: '上传', icon: 'upload', value: speed?.up_kbps, history: upHistory }]" :key="item.label" class="min-h-0 min-w-0 gap-0  py-0 ">
+        <div class="flex h-full min-h-0 flex-col justify-between gap-0.5 px-3 py-1">
+          <p class="flex items-center gap-1 text-xs text-muted-foreground"><PanelDetailIcon :name="item.icon" />{{ item.label }}</p>
           <p class="truncate text-base font-semibold tabular-nums">{{ formatSpeed(item.value) }}</p>
           <p v-if="speedFailed" class="truncate text-xs text-muted-foreground">{{ item.value == null ? '读取失败' : '更新失败 · 旧数据' }}</p>
-          <TrendLine v-else-if="item.history.length > 1" :values="item.history" :label="`${item.label}速度`" />
+          <TrendLine v-else-if="item.history.length > 1" :values="[...item.history].reverse()" :label="`${item.label}速度`" />
           <p v-else class="truncate text-xs text-muted-foreground">采样中…</p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   </div>
 </template>

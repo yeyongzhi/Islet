@@ -35,6 +35,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
 
 const total = computed(() => disks.value.reduce((sum, disk) => sum + disk.total_gb, 0))
 const used = computed(() => disks.value.reduce((sum, disk) => sum + Math.max(0, disk.total_gb - disk.available_gb), 0))
+const totalPercent = computed(() => total.value > 0 ? Math.max(0, Math.min(100, used.value / total.value * 100)) : 0)
 const percent = (disk: DiskInfo) => Math.min(100, Math.max(0, disk.pct))
 const isLow = (disk: DiskInfo) => disk.available_gb / disk.total_gb * 100 < settings.prefs.diskWarningPercent
 const shortMount = (mount: string) => mount.replace(/[\\/]+$/, '').replace(/:$/, '')
@@ -50,27 +51,27 @@ async function openDisk(disk: DiskInfo) {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col gap-2">
+  <div class="flex h-full min-h-0 min-w-0 flex-col gap-2">
     <template v-if="status === 'ready' && disks.length">
-      <div class="flex items-baseline justify-between gap-2">
-        <span class="text-xs font-medium text-muted-foreground">磁盘空间</span>
-        <span class="text-xs text-muted-foreground tabular-nums">已用 {{ capacity(used) }} / {{ capacity(total) }}</span>
+      <div class="flex min-w-0 items-center gap-3">
+        <Progress :model-value="totalPercent" class="h-1.5 min-w-0 flex-1" aria-label="磁盘总使用空间" :aria-valuetext="`已用 ${capacity(used)}，总共 ${capacity(total)}`" />
+        <span class="shrink-0 text-xs text-muted-foreground tabular-nums">已用 {{ capacity(used) }} / {{ capacity(total) }}</span>
       </div>
 
-      <!-- 每张卡片宽度按磁盘总容量占比计算；填充宽度代表该盘已用比例。 -->
-      <div class="flex min-h-10 w-full flex-1 gap-4" aria-label="各磁盘容量与使用情况">
+      <!-- 每个磁盘区域的宽度按总容量占比计算。 -->
+      <div class="flex min-h-10 w-full flex-1 divide-x divide-border" aria-label="各磁盘容量与使用情况">
         <Button
           v-for="disk in disks"
           :key="disk.mount"
           type="button"
           variant="ghost"
-          class="group relative h-auto min-w-0 overflow-hidden rounded-xl border border-border/70 bg-card p-0 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-card hover:shadow-md"
+          class="group relative h-auto min-w-0 overflow-hidden rounded-none p-0 text-left transition-colors hover:bg-accent"
           :style="{ flex: `${disk.total_gb} 1 0%` }"
           :title="`打开 ${shortMount(disk.mount)} 盘 · 已用 ${percent(disk).toFixed(0)}% · 可用 ${capacity(disk.available_gb)}`"
           :aria-label="`打开 ${shortMount(disk.mount)} 盘目录，已用 ${percent(disk).toFixed(0)}%，可用 ${capacity(disk.available_gb)}`"
           @click="openDisk(disk)"
         >
-          <div class="relative flex h-full min-h-24 min-w-0 flex-col justify-between gap-2 p-2">
+          <div class="relative flex h-full w-full min-h-0 min-w-0 flex-col justify-between gap-2 p-2">
             <div class="flex min-w-0 items-center justify-between gap-1">
               <span class="truncate text-base font-bold tracking-tight">{{ shortMount(disk.mount) }}:</span>
               <span class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums" :class="isLow(disk) ? 'bg-red-500/15 text-red-600 dark:text-red-400' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'">{{ percent(disk).toFixed(0) }}%</span>

@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { panelIllustration } from '@/lib/panelIllustrations'
 import { PANEL_SIZES, useSettingsStore } from '@/stores/settings'
 import PanelPreview from '@/components/settings/PanelPreview.vue'
 import CountdownEditor from '@/components/settings/CountdownEditor.vue'
@@ -76,6 +77,15 @@ function setEnabled(id: PanelId, enabled: boolean) {
     settings.set('favoritePanels', settings.prefs.favoritePanels.filter((item) => item !== id))
     settings.set('panelOrder', [...settings.prefs.panelOrder.filter((item) => item !== id), id])
   } else disabled.add(id)
+  settings.set('disabledPanels', [...disabled])
+}
+
+function setGroupEnabled(rows: Row[], enabled: boolean) {
+  const disabled = new Set(settings.prefs.disabledPanels)
+  for (const row of rows) {
+    if (enabled) disabled.delete(row.id)
+    else disabled.add(row.id)
+  }
   settings.set('disabledPanels', [...disabled])
 }
 
@@ -217,14 +227,14 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
 </script>
 
 <template>
-  <div class="flex max-w-xl flex-col gap-4">
+  <div class="flex w-full min-w-0 flex-col gap-4" :class="view !== 'list' ? 'max-w-xl' : ''">
     <!-- 卡片详情页：独立编辑设置 + 实时预览 -->
     <template v-if="view === 'detail' && detailId">
       <div class="flex items-center gap-2">
         <Tooltip><TooltipTrigger as-child><Button variant="ghost" size="icon" class="size-8" aria-label="返回列表" @click="view = 'list'">
           <ArrowLeft class="size-4" aria-hidden="true" />
         </Button></TooltipTrigger><TooltipContent>返回列表</TooltipContent></Tooltip>
-        <component :is="detailMeta!.icon" class="size-4 text-muted-foreground" aria-hidden="true" />
+        <img :src="panelIllustration(detailId)" class="size-4 object-contain" alt="" aria-hidden="true" />
         <p class="text-sm font-semibold">{{ detailMeta!.label }}</p>
       </div>
 
@@ -335,7 +345,7 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
             <GripVertical class="size-4" aria-hidden="true" />
           </span>
           <span class="w-5 shrink-0 text-center text-xs text-muted-foreground tabular-nums">{{ i + 1 }}</span>
-          <component :is="row.icon" class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <img :src="panelIllustration(row.id)" class="size-4 shrink-0 object-contain" alt="" aria-hidden="true" />
           <span class="min-w-0 flex-1 truncate text-sm" :class="row.enabled ? '' : 'text-muted-foreground'">
             {{ row.label }}
           </span>
@@ -375,10 +385,16 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
         :key="group.category"
         class="flex flex-col gap-2"
       >
-        <h3 class="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-          {{ group.category }}
-          <span class="text-[10px] font-normal">{{ group.rows.length }} 张卡片</span>
-        </h3>
+        <div class="flex items-center justify-between gap-3">
+          <h3 class="flex items-baseline gap-2 text-base font-semibold">
+            {{ group.category }}
+            <span class="text-xs font-normal text-muted-foreground">{{ group.rows.length }} 张卡片</span>
+          </h3>
+          <div class="flex shrink-0 items-center gap-2">
+            <Button size="sm" class="h-8" :disabled="group.rows.every((row) => row.enabled)" :aria-label="`开启${group.category}${query.trim() ? '搜索结果' : '分类全部面板'}`" @click="setGroupEnabled(group.rows, true)">{{ query.trim() ? '开启结果' : '全部开启' }}</Button>
+            <Button variant="outline" size="sm" class="h-8" :disabled="group.rows.every((row) => !row.enabled)" :aria-label="`关闭${group.category}${query.trim() ? '搜索结果' : '分类全部面板'}`" @click="setGroupEnabled(group.rows, false)">{{ query.trim() ? '关闭结果' : '全部关闭' }}</Button>
+          </div>
+        </div>
 
         <div class="grid grid-cols-2 gap-2.5">
           <div
@@ -387,7 +403,7 @@ const detailMeta = computed(() => (detailId.value ? PANELS.find((p) => p.id === 
             class="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-3"
           >
             <div class="flex items-center justify-between">
-              <component :is="row.icon" class="size-4 text-muted-foreground" aria-hidden="true" />
+              <img :src="panelIllustration(row.id)" class="size-4 object-contain" alt="" aria-hidden="true" />
               <Switch
                 :model-value="row.enabled"
                 :aria-label="`${row.enabled ? '移除' : '添加'}${row.label}卡片`"

@@ -1,10 +1,9 @@
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ArrowDownUp } from 'lucide-vue-next'
+import illustration from '@/assets/panel-illustrations/rates.png'
 import { fetchRates } from '@/services/rates'
 import { useSettingsStore } from '@/stores/settings'
 import { PANEL_OPTIONS } from '@/stores/panels'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
 const settings = useSettingsStore()
@@ -50,15 +49,15 @@ onBeforeUnmount(() => window.clearInterval(timer))
 
 <template>
   <!-- 汇率：基准货币 → 目标货币 -->
-  <Card class="h-full gap-0 bg-primary/5 py-0 shadow-none">
-    <CardContent class="flex h-full items-stretch gap-4 p-2">
-      <div class="flex h-full w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10"><ArrowDownUp class="size-4 text-primary" aria-hidden="true" /></div>
+  <div class="h-full gap-0  py-0 ">
+    <div class="flex h-full items-stretch gap-4 p-2">
+      <img :src="illustration" class="size-20 shrink-0 self-center object-contain" alt="" aria-hidden="true" />
       <div class="flex min-h-0 min-w-0 flex-1 flex-col justify-between gap-1">
         <p class="text-xs text-muted-foreground">1 {{ fromCur }} 兑换 {{ toCur }}</p>
         <p class="truncate text-3xl font-semibold text-primary tabular-nums">{{ rate !== null ? rate.toFixed(4) : rateStatus === 'error' ? '暂不可用' : '加载中…' }}</p>
         <p v-if="rate !== null" class="text-xs text-muted-foreground">{{ fromCur === toCur ? '相同货币' : '数据日期 ' + rateDate }}{{ rateStatus === 'stale' ? ' · 缓存' : '' }}<span v-if="fetchedAt"> · 更新 {{ new Date(fetchedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) }}</span></p>
-        <Button v-if="rateStatus === 'error' || rateStatus === 'stale'" variant="outline" size="sm" class="h-7 w-fit text-xs" @click="load">重试</Button>
+        <Button v-if="rateStatus === 'error' || rateStatus === 'stale'" size="sm" class="h-7 w-fit text-xs" @click="load">重试</Button>
       </div>
-    </CardContent>
-  </Card>
+    </div>
+  </div>
 </template>

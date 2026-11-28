@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { Cloud, CloudFog, CloudLightning, CloudRain, CloudSnow, CloudSun, Sun } from 'lucide-vue-next'
+import PanelDetailIcon from '@/components/island/PanelDetailIcon.vue'
+import { weatherIcon } from '@/services/openMeteo'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -11,9 +12,9 @@ import { COMPACT_ITEMS, useSettingsStore, type CompactDateFormat, type CompactIt
 
 const settings = useSettingsStore()
 const weatherIcons = [
-  { label: '晴', icon: Sun }, { label: '多云', icon: CloudSun }, { label: '阴', icon: Cloud },
-  { label: '雾', icon: CloudFog }, { label: '雨', icon: CloudRain }, { label: '雪', icon: CloudSnow },
-  { label: '雷雨', icon: CloudLightning },
+  { label: '晴', code: 0 }, { label: '多云', code: 2 }, { label: '阴', code: 3 },
+  { label: '雾', code: 45 }, { label: '雨', code: 61 }, { label: '雪', code: 71 },
+  { label: '雷雨', code: 95 },
 ]
 const enabled = computed(() => settings.prefs.compactItems)
 const groups: { label: string; items: CompactItem[] }[] = [
@@ -137,7 +138,7 @@ onBeforeUnmount(() => finishDrag(false))
           </CardContent>
           <CardContent v-if="id === 'weather'" class="flex flex-wrap gap-x-3 gap-y-2 px-3" aria-label="天气图标预览">
             <span v-for="item in weatherIcons" :key="item.label" class="flex items-center gap-1 text-xs text-muted-foreground" :title="item.label">
-              <component :is="item.icon" class="size-4 shrink-0" aria-hidden="true" />{{ item.label }}
+              <PanelDetailIcon :name="weatherIcon(item.code)" />{{ item.label }}
             </span>
           </CardContent>
         </Card>

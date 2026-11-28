@@ -124,7 +124,6 @@ export const PANEL_OPTIONS: Record<PanelId, PanelOptionDef[]> = {
   calendar: [],
   clock: [
     { key: 'hour24', label: '24 小时制', type: 'switch', default: true },
-    { key: 'showSeconds', label: '显示秒', type: 'switch', default: false },
   ],
   progress: [
     { key: 'showYear', label: '显示全年进度', type: 'switch', default: true },

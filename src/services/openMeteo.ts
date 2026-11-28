@@ -51,6 +51,18 @@ export function weatherText(code: number): string {
   return WEATHER_TEXT[code] ?? '未知'
 }
 
+/** 图标与天气代码共用一套映射，日历和天气面板保持一致。 */
+export function weatherIcon(code: number): string {
+  if (code === 0) return 'sun'
+  if (code === 1 || code === 2) return 'weather'
+  if (code === 3) return 'cloud'
+  if (code === 45 || code === 48) return 'fog'
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return 'rain'
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow'
+  if (code >= 95) return 'storm'
+  return 'cloud'
+}
+
 /**
  * 通过 Open-Meteo 获取天气（免费、无需 API Key）：
  * 地理编码 + 当前天气 + 未来 6 天预报

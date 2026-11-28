@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { invoke } from '@tauri-apps/api/core'
 import { emit as emitEvent } from '@tauri-apps/api/event'
-import { computed, defineAsyncComponent, type Component } from 'vue'
-import { ChevronLeft, ChevronRight, LayoutGrid, Pin, PinOff, Settings } from 'lucide-vue-next'
+import { computed, defineAsyncComponent, nextTick, ref, watch, type Component } from 'vue'
+import { ChevronLeft, ChevronRight, Pin, PinOff, Settings } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -34,7 +34,8 @@ const GalleryPanel = defineAsyncComponent(() => import('./panels/GalleryPanel.vu
 const TimerPanel = defineAsyncComponent(() => import('./panels/TimerPanel.vue'))
 const VolumePanel = defineAsyncComponent(() => import('./panels/VolumePanel.vue'))
 const PowerPanel = defineAsyncComponent(() => import('./panels/PowerPanel.vue'))
-import { usePanelsStore, type PanelId } from '@/stores/panels'
+import { panelIllustration } from '@/lib/panelIllustrations'
+import { PANELS, usePanelsStore, type PanelId } from '@/stores/panels'
 import { useIslandStore } from '@/stores/island'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { useSettingsStore } from '@/stores/settings'
@@ -76,6 +77,21 @@ const PANEL_COMPONENTS: Record<PanelId, Component> = {
 
 const props = defineProps<{ pinned: boolean; open: boolean; notification: NotifyItem | null; notificationIcon?: Component; previewId?: PanelId; renderContent?: boolean }>()
 const emit = defineEmits<{ drag: [event: PointerEvent]; togglePin: [] }>()
+
+const indicatorArea = ref<InstanceType<typeof ScrollArea> | null>(null)
+watch(() => [panels.activeId, panels.visiblePanels.map((panel) => panel.id).join(','), settings.prefs.panelIndicatorStyle, props.open] as const, async () => {
+  await nextTick()
+  const root = indicatorArea.value?.$el as HTMLElement | undefined
+  const viewport = root?.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]')
+  const active = root?.querySelector<HTMLElement>('[data-active="true"]')
+  if (!viewport || !active) return
+  const viewportRect = viewport.getBoundingClientRect()
+  const activeRect = active.getBoundingClientRect()
+  const offset = activeRect.left - viewportRect.left - (viewportRect.width - activeRect.width) / 2
+  viewport.scrollTo({ left: viewport.scrollLeft + offset, behavior: 'smooth' })
+}, { immediate: true })
+
+const activePanel = computed(() => PANELS.find((panel) => panel.id === (props.previewId ?? panels.activeId)))
 
 const notificationText = computed(() => {
   const item = props.notification
@@ -126,12 +142,12 @@ async function hideIsland() {
       @pointerdown="emit('drag', $event)"
       @wheel="handleWheel"
     >
-      <div class="absolute left-10 flex min-w-0 items-center justify-center" :class="notification?.tone === 'warn' ? 'right-32' : 'right-16'">
+      <div class="absolute left-[6.25rem] flex min-w-0 items-center justify-center" :class="notification?.tone === 'warn' ? 'right-32' : 'right-16'">
         <div v-if="notification" class="flex min-w-0 max-w-full items-center justify-center gap-1.5 text-xs font-medium" :class="notification.tone === 'warn' ? 'text-red-400' : notification.tone === 'good' ? 'text-emerald-400' : 'text-foreground'" role="status" :title="notificationText">
           <component :is="notificationIcon" v-if="notificationIcon" class="size-4 shrink-0" aria-hidden="true" />
           <span class="truncate">{{ notificationText }}</span>
         </div>
-        <div v-else class="text-base font-bold text-foreground">
+        <div v-else class="truncate whitespace-nowrap text-xs font-bold text-foreground">
           {{ island.dateText }}
           <span class="ml-1 text-foreground tabular-nums">{{ island.timeText }}</span>
         </div>
@@ -142,19 +158,24 @@ async function hideIsland() {
       </div>
       <DropdownMenu v-if="settings.prefs.quickPanelSwitch">
         <DropdownMenuTrigger as-child>
-          <Button variant="ghost" size="icon" class="absolute left-0 top-0 size-8" aria-label="选择面板" @pointerdown.stop>
-            <LayoutGrid class="size-4" aria-hidden="true" />
+          <Button variant="ghost" class="absolute left-0 top-0 h-8 max-w-[6.25rem] justify-start gap-1 px-1 text-xs font-semibold" :aria-label="`选择面板，当前：${activePanel?.label ?? '面板'}`" @pointerdown.stop>
+            <img v-if="activePanel" :src="panelIllustration(activePanel.id)" class="size-4 shrink-0 object-contain" alt="" aria-hidden="true" />
+            <span class="truncate">{{ activePanel?.label }}</span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" class="w-44">
-          <ScrollArea class="h-48">
+        <DropdownMenuContent align="start" class="w-44 overflow-hidden">
+          <ScrollArea class="h-[min(12rem,calc(var(--reka-dropdown-menu-content-available-height)-0.5rem))]">
             <DropdownMenuItem v-for="panel in panels.visiblePanels" :key="panel.id" @select="panels.select(panel.id)">
-              <component :is="panel.icon" class="size-4" aria-hidden="true" />
+              <img :src="panelIllustration(panel.id)" class="size-4 object-contain" alt="" aria-hidden="true" />
               {{ panel.label }}<span v-if="settings.prefs.favoritePanels.includes(panel.id)" aria-label="已收藏">★</span><span v-if="panels.activeId === panel.id" class="ml-auto">✓</span>
             </DropdownMenuItem>
           </ScrollArea>
         </DropdownMenuContent>
       </DropdownMenu>
+      <div v-else class="absolute left-1 flex max-w-[6rem] items-center gap-1 text-xs font-semibold" :title="activePanel?.label">
+        <img v-if="activePanel" :src="panelIllustration(activePanel.id)" class="size-4 shrink-0 object-contain" alt="" aria-hidden="true" />
+        <span class="truncate">{{ activePanel?.label }}</span>
+      </div>
       <TooltipProvider :delay-duration="300">
         <Tooltip>
           <TooltipTrigger as-child>
@@ -240,12 +261,14 @@ async function hideIsland() {
       class="relative z-10 flex shrink-0 items-center justify-center pt-1"
       @wheel="handleWheel"
     >
-      <ScrollArea v-if="settings.prefs.panelIndicatorStyle === 'dots'" class="min-w-0 max-w-[calc(100%-4rem)]"><div class="flex w-max items-center justify-center">
+      <ScrollArea v-if="settings.prefs.panelIndicatorStyle === 'dots'" ref="indicatorArea" class="min-w-0 max-w-[calc(100%-4rem)]"><div class="flex w-max items-center justify-center">
         <Button v-for="p in panels.visiblePanels" :key="p.id"
           variant="ghost"
           size="icon"
           class="size-4 shrink-0 hover:bg-transparent"
           :aria-label="p.label"
+          :data-active="panels.activeId === p.id"
+          :aria-current="panels.activeId === p.id ? 'true' : undefined"
           @click="panels.select(p.id)"
         >
           <span
@@ -253,7 +276,7 @@ async function hideIsland() {
             :class="panels.activeId === p.id ? 'h-1.5 w-4 bg-foreground' : 'size-1.5 bg-muted-foreground/40 hover:bg-muted-foreground/70'"
           />
         </Button>
-      </div><ScrollBar orientation="horizontal" /></ScrollArea>
+      </div><ScrollBar orientation="horizontal" class="invisible pointer-events-none" /></ScrollArea>
       <span v-if="settings.prefs.panelIndicatorStyle === 'text'" class="text-xs font-medium text-foreground">
         {{ panels.visiblePanels.find((p) => p.id === panels.activeId)?.label }}<span class="ml-1 font-normal text-muted-foreground">{{ panels.index + 1 }} / {{ panels.visiblePanels.length }}</span>
       </span>

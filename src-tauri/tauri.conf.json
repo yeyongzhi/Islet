@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Islet",
-  "version": "0.1.0-beta.6",
+  "version": "0.1.0-beta.7",
   "identifier": "com.winisland.app",
   "build": {
     "frontendDist": "../dist",

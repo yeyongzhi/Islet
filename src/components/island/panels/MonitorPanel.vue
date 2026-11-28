@@ -1,8 +1,7 @@
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { Cpu, MemoryStick } from 'lucide-vue-next'
-import { Card, CardContent } from '@/components/ui/card'
+import PanelDetailIcon from '@/components/island/PanelDetailIcon.vue'
 import { Progress } from '@/components/ui/progress'
 import TrendLine from '@/components/island/TrendLine.vue'
 
@@ -50,24 +49,24 @@ const memColor = computed(() => {
 
 <template>
   <!-- 系统监控：CPU / 内存 占用 -->
-  <div class="grid h-full grid-cols-2 gap-2">
-    <Card class="min-w-0 gap-0 bg-muted/30 py-0 shadow-none">
-      <CardContent class="flex h-full flex-col justify-between gap-1 p-3">
-        <p class="flex items-center gap-1.5 text-xs text-muted-foreground"><Cpu class="size-4 text-sky-500" />CPU</p>
+  <div class="grid h-full grid-cols-2 divide-x divide-border">
+    <div class="min-w-0 gap-0  py-0 ">
+      <div class="flex h-full flex-col justify-between gap-1 p-3">
+        <p class="flex items-center gap-1.5 text-xs text-muted-foreground"><PanelDetailIcon name="system-cpu" />CPU</p>
         <p class="text-2xl font-semibold tabular-nums">{{ stats ? `${stats.cpu_pct.toFixed(0)}%` : '—' }}</p>
         <Progress v-if="stats" :model-value="stats.cpu_pct" :class="cpuColor" class="h-2 bg-muted" aria-label="CPU 使用率" />
         <TrendLine :values="cpuHistory" label="CPU 使用率" />
         <p class="text-xs text-muted-foreground">{{ failed ? (stats ? '更新失败 · 旧数据' : '读取失败') : stats ? '处理器使用率' : '加载中…' }}</p>
-      </CardContent>
-    </Card>
-    <Card class="min-w-0 gap-0 bg-muted/30 py-0 shadow-none">
-      <CardContent class="flex h-full flex-col justify-between gap-1 p-3">
-        <p class="flex items-center gap-1.5 text-xs text-muted-foreground"><MemoryStick class="size-4 text-violet-500" />内存</p>
+      </div>
+    </div>
+    <div class="min-w-0 gap-0  py-0 ">
+      <div class="flex h-full flex-col justify-between gap-1 p-3">
+        <p class="flex items-center gap-1.5 text-xs text-muted-foreground"><PanelDetailIcon name="system-memory" />内存</p>
         <p class="text-2xl font-semibold tabular-nums">{{ stats ? `${stats.mem_pct.toFixed(0)}%` : '—' }}</p>
         <Progress v-if="stats" :model-value="stats.mem_pct" :class="memColor" class="h-2 bg-muted" aria-label="内存使用率" />
         <TrendLine :values="memoryHistory" label="内存使用率" />
         <p class="truncate text-xs text-muted-foreground tabular-nums">{{ stats ? `${stats.mem_used_gb} / ${stats.mem_total_gb} GB${failed ? ' · 旧数据' : ''}` : failed ? '读取失败' : '加载中…' }}</p>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   </div>
 </template>

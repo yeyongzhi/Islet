@@ -153,6 +153,7 @@ export const useNotifyStore = defineStore('notify', () => {
 
   function showCurrent(item: NotifyItem) {
     window.clearTimeout(hideTimer)
+    overlay.value = null
     current.value = item
     // 侧边竖条放不下文字：首次展示时临时变横向小气泡
     const edge = settings.prefs.islandEdge
@@ -184,8 +185,9 @@ export const useNotifyStore = defineStore('notify', () => {
 
   /** 面板展开时的浮层通知（不改变窗口状态） */
   function showOverlay(item: NotifyItem) {
-    overlay.value = item
     window.clearTimeout(hideTimer)
+    current.value = null
+    overlay.value = item
     hideTimer = window.setTimeout(() => {
       overlay.value = null
       showNext()

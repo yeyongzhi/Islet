@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { computed, onMounted, ref, watch } from 'vue'
-import { Music, Pause, Play, SkipBack, SkipForward } from 'lucide-vue-next'
+import PanelDetailIcon from '@/components/island/PanelDetailIcon.vue'
+import illustration from '@/assets/panel-illustrations/music.png'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { useMusicStore, type MediaAction } from '@/stores/music'
@@ -38,9 +39,7 @@ function toggle() {
   <div class="relative flex h-full flex-col items-center justify-center gap-3 overflow-hidden">
     <!-- 空状态：无媒体会话 -->
     <template v-if="!hasTrack">
-      <div class="flex size-14 items-center justify-center rounded-2xl border border-border bg-muted">
-        <Music class="size-7 text-muted-foreground" aria-hidden="true" />
-      </div>
+      <img :src="illustration" class="size-16 object-contain" alt="" aria-hidden="true" />
       <div class="text-center">
         <p class="text-sm font-medium">{{ music.error ? '播放器状态不可用' : '未在播放' }}</p>
         <p class="mt-1 text-xs text-muted-foreground">
@@ -55,7 +54,7 @@ function toggle() {
         <!-- 左：专辑封面（加载失败回退占位图标） -->
         <div class="relative aspect-square h-full max-h-36 max-w-[45%] shrink-0 overflow-hidden rounded-xl bg-primary">
           <img v-if="music.thumbnail" :src="music.thumbnail" class="absolute inset-0 size-full object-cover" alt="" @error="music.thumbnail = null" />
-          <div v-else class="absolute inset-0 flex items-center justify-center"><Music class="size-10 text-primary-foreground" aria-hidden="true" /></div>
+          <div v-else class="absolute inset-0 flex items-center justify-center bg-background"><img :src="illustration" class="size-16 object-contain" alt="" aria-hidden="true" /></div>
         </div>
 
         <!-- 右：曲名 + 进度 + 控制 -->
@@ -106,17 +105,18 @@ function toggle() {
               :disabled="!music.state!.can_prev"
               @click="music.control('prev')"
             >
-              <SkipBack class="size-5" aria-hidden="true" />
+              <PanelDetailIcon name="previous" style="width: 24px; height: 24px" />
             </Button></TooltipTrigger><TooltipContent>上一曲</TooltipContent></Tooltip>
             <Tooltip><TooltipTrigger as-child><Button
+              variant="secondary"
               size="icon"
-              class="size-11 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90"
+              class="size-11 rounded-full"
               :aria-label="music.state!.playing ? '暂停' : '播放'"
               :disabled="music.state!.playing ? !music.state!.can_pause : !music.state!.can_play"
               @click="toggle"
             >
-              <Pause v-if="music.state!.playing" class="size-5" aria-hidden="true" />
-              <Play v-else class="size-5" aria-hidden="true" />
+              <PanelDetailIcon name="pause" style="width: 24px; height: 24px" v-if="music.state!.playing" />
+              <PanelDetailIcon name="play" style="width: 24px; height: 24px" v-else />
             </Button></TooltipTrigger><TooltipContent>{{ music.state!.playing ? '暂停' : '播放' }}</TooltipContent></Tooltip>
             <Tooltip><TooltipTrigger as-child><Button
               variant="ghost"
@@ -126,7 +126,7 @@ function toggle() {
               :disabled="!music.state!.can_next"
               @click="music.control('next')"
             >
-              <SkipForward class="size-5" aria-hidden="true" />
+              <PanelDetailIcon name="next" style="width: 24px; height: 24px" />
             </Button></TooltipTrigger><TooltipContent>下一曲</TooltipContent></Tooltip>
           </div>
         </div>

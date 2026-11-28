@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { FolderInput, Folder, File, Trash2, Inbox } from 'lucide-vue-next'
+import PanelDetailIcon from '@/components/island/PanelDetailIcon.vue'
+import illustration from '@/assets/panel-illustrations/transfer.png'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'vue-sonner'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
@@ -97,11 +98,7 @@ onMounted(async () => {
   <!-- 文件中转站：标题独立在卡片上方，拖入暂存路径，按住拖出使用 -->
   <div class="flex h-full flex-col gap-2">
     <!-- 标题行（卡片外） -->
-    <div class="flex shrink-0 items-center justify-between px-1">
-      <p class="flex items-center gap-2 text-sm font-semibold">
-        <FolderInput class="size-4 text-muted-foreground" aria-hidden="true" />
-        文件中转站
-      </p>
+    <div v-if="transfer.items.length" class="flex shrink-0 items-center justify-end px-1">
       <div class="flex items-center gap-1">
         <Badge v-if="transfer.items.length" variant="secondary" class="h-5 px-1.5 text-[10px] tabular-nums">
           {{ transfer.items.length }} 项
@@ -113,15 +110,15 @@ onMounted(async () => {
           class="h-7 gap-1.5 px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
           aria-label="清空中转站"
         >
-          <Trash2 class="size-4" aria-hidden="true" />清空
+          <PanelDetailIcon name="trash" style="width: 20px; height: 20px" />清空
         </Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>清空中转站？</AlertDialogTitle><AlertDialogDescription>只删除暂存的路径记录，不会删除原文件。</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction class="bg-destructive text-destructive-foreground" @click="transfer.clear()">清空</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       </div>
     </div>
 
     <!-- 卡片：拖放区 / 列表 -->
     <div
-      class="flex min-h-0 flex-1 flex-col rounded-xl border border-border bg-muted/40 p-3 transition-colors"
-      :class="dragOver ? 'border-primary bg-primary/10' : ''"
+      class="flex min-h-0 flex-1 flex-col p-2 transition-colors"
+      :class="dragOver ? 'bg-primary/10' : ''"
       @pointerdown.capture="beginPress(null, $event)"
     >
       <!-- 空状态 -->
@@ -129,9 +126,7 @@ onMounted(async () => {
         v-if="transfer.items.length === 0"
         class="flex flex-1 flex-col items-center justify-center gap-2"
       >
-        <div class="flex size-12 items-center justify-center rounded-2xl bg-primary/10">
-          <Inbox class="size-6 text-muted-foreground" aria-hidden="true" />
-        </div>
+        <img :src="illustration" class="size-16 object-contain" alt="" aria-hidden="true" />
         <p class="text-sm text-muted-foreground">把文件拖到这里暂存</p>
       </div>
 
@@ -146,11 +141,7 @@ onMounted(async () => {
             :title="item.path"
             @pointerdown.capture.stop="beginPress(item.path, $event)"
           >
-            <component
-              :is="item.isDir ? Folder : File"
-              class="size-4 shrink-0 text-muted-foreground"
-              aria-hidden="true"
-            />
+            <PanelDetailIcon :name="item.isDir ? 'folder' : 'file'" />
             <span class="min-w-0 flex-1 truncate text-xs">{{ item.name }}</span>
             <span class="shrink-0 text-xs text-muted-foreground">{{ item.exists === false ? '原文件不可用' : item.isDir ? '文件夹' : item.size != null ? `${(item.size / 1048576).toFixed(1)} MB` : '文件' }}</span>
             <Tooltip><TooltipTrigger as-child><Button
@@ -161,7 +152,7 @@ onMounted(async () => {
               @pointerdown.capture.stop
               @click.stop="transfer.remove(item.path)"
             >
-              <Trash2 class="size-4" aria-hidden="true" />
+              <PanelDetailIcon name="trash" style="width: 20px; height: 20px" />
             </Button></TooltipTrigger><TooltipContent>{{ `移除 ${item.name}` }}</TooltipContent></Tooltip>
           </div>
         </div>

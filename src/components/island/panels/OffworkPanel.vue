@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
-import { Briefcase, Coins, CalendarCheck } from 'lucide-vue-next'
+import offworkImage from '@/assets/panel-illustrations/offwork.png'
+import PanelDetailIcon from '@/components/island/PanelDetailIcon.vue'
 import { useIslandStore } from '@/stores/island'
 import { useSettingsStore } from '@/stores/settings'
 import { PANEL_OPTIONS } from '@/stores/panels'
@@ -52,36 +53,20 @@ const tenureText = computed(() => {
 </script>
 
 <template>
-  <!-- 打工人面板：下班倒计时 / 发薪日 / 工龄 -->
-  <div class="flex h-full min-h-0 flex-col justify-between gap-1">
-    <div class="flex items-center gap-3">
-      <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-        <Briefcase class="size-4 text-primary" aria-hidden="true" />
-      </div>
-      <p class="min-w-0 flex-1 truncate text-sm">距下班</p>
-      <div class="text-right">
-        <p class="text-lg font-semibold tabular-nums">{{ offwork }}</p>
-      </div>
+  <div class="flex h-full min-h-0 items-center gap-2">
+    <img :src="offworkImage" class="size-20 shrink-0 object-contain" alt="" aria-hidden="true" />
+    <div class="grid h-full min-w-0 flex-1 grid-cols-2 divide-x divide-border">
+    <div class="flex min-w-0 flex-col justify-center gap-2 pr-2">
+      <p class="flex items-center gap-2 text-xs text-muted-foreground"><PanelDetailIcon name="offwork" />距下班</p>
+      <p class="text-base font-semibold tabular-nums">{{ offwork }}</p>
+      <p class="text-xs text-muted-foreground">{{ endTime }} 下班</p>
     </div>
-
-    <div class="flex items-center gap-3">
-      <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15">
-        <Coins class="size-4 text-amber-500" aria-hidden="true" />
-      </div>
-      <p class="min-w-0 flex-1 truncate text-sm">距发工资</p>
-      <div class="text-right">
-        <p class="text-lg font-semibold tabular-nums">{{ paydayText.text }}</p>
-      </div>
+    <div class="flex min-w-0 flex-col justify-center gap-2 pl-2">
+      <p class="flex items-center gap-2 text-xs text-muted-foreground"><PanelDetailIcon name="coins" />距发工资</p>
+      <p class="truncate text-base font-semibold tabular-nums">{{ paydayText.text }}</p>
+      <p class="truncate text-xs text-muted-foreground">{{ paydayText.sub }}</p>
+      <p v-if="tenureText" class="flex items-center gap-1 truncate border-t border-border pt-2 text-xs text-muted-foreground"><PanelDetailIcon name="calendar" />工龄 {{ tenureText.text }}</p>
     </div>
-
-    <div v-if="tenureText" class="flex items-center gap-3">
-      <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15">
-        <CalendarCheck class="size-4 text-emerald-500" aria-hidden="true" />
-      </div>
-      <p class="min-w-0 flex-1 truncate text-sm">入职至今</p>
-      <div class="text-right">
-        <p class="text-lg font-semibold tabular-nums">{{ tenureText.text }}</p>
-      </div>
     </div>
   </div>
 </template>

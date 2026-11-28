@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { computed, ref, watch } from 'vue'
-import { Clock3, Coffee, Pause, Play, Briefcase, RotateCcw } from 'lucide-vue-next'
+import PanelDetailIcon from '@/components/island/PanelDetailIcon.vue'
+import illustration from '@/assets/panel-illustrations/pomodoro.png'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
@@ -51,30 +52,26 @@ watch(
 
 <template>
   <!-- 番茄专注面板：顶部 Tabs / 中间时间与档位 / 底部操作 -->
-  <div class="flex h-full min-h-0 items-stretch justify-between gap-4">
-    <div class="flex h-full w-24 shrink-0 items-center justify-center rounded-3xl" :class="activeMode === 'break' ? 'bg-emerald-500/15' : 'bg-primary/10'" aria-hidden="true">
-      <Coffee v-if="activeMode === 'break'" class="size-9 text-emerald-400" />
-      <Briefcase v-else class="size-9 text-primary" />
-    </div>
+  <div class="flex h-full min-h-0 items-stretch justify-between gap-2">
+    <img :src="illustration" class="size-20 shrink-0 self-center object-contain" alt="" aria-hidden="true" />
     <div class="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-between gap-1">
     <!-- 顶部：专注 / 休息 -->
     <Tabs
       :model-value="activeMode"
       @update:model-value="(v) => (idleMode = v as 'work' | 'break')"
     >
-      <TabsList class="h-9">
+      <TabsList class="h-7">
         <TabsTrigger value="work" class="px-5 text-sm" :disabled="pomodoro.phase !== 'idle'">专注</TabsTrigger>
         <TabsTrigger value="break" class="px-5 text-sm" :disabled="pomodoro.phase !== 'idle'">休息</TabsTrigger>
       </TabsList>
     </Tabs>
 
     <!-- 中间：左图标 / 中时间 / 右阶段文案与档位 -->
-    <div class="flex items-center gap-3">
+    <div class="flex min-w-0 items-center gap-1">
 
       <!-- 中：时间 -->
       <p
-        class="text-[2.5rem] font-semibold leading-none tabular-nums"
-        :class="activeMode === 'break' ? 'text-emerald-400' : 'text-foreground'"
+        class="text-5xl font-semibold leading-none tracking-tight text-foreground tabular-nums"
       >
         {{ display }}
       </p>
@@ -84,12 +81,12 @@ watch(
         <Tooltip><TooltipTrigger as-child><Button
           variant="ghost"
           size="icon"
-          class="size-8 text-muted-foreground hover:bg-accent"
+          class="size-10 text-muted-foreground hover:bg-accent"
           :disabled="pomodoro.phase !== 'idle'"
           :aria-label="`切换时长，当前 ${minutes} 分钟`"
           @click="cycleDuration"
         >
-          <Clock3 class="size-4 text-muted-foreground" aria-hidden="true" />
+          <PanelDetailIcon name="system-uptime" style="width: 32px; height: 32px" />
         </Button></TooltipTrigger><TooltipContent>{{ `切换时长，当前 ${minutes} 分钟` }}</TooltipContent></Tooltip>
       </div>
     </div>
@@ -97,22 +94,23 @@ watch(
     <!-- 底部：开始 / 重置 -->
     <div class="flex items-center gap-3">
       <Button
+        variant="secondary"
         size="sm"
-        class="h-10 gap-1.5 bg-primary px-5 text-sm text-primary-foreground hover:bg-primary/90"
+        class="h-8 gap-1.5 px-5 text-sm"
         :aria-label="pomodoro.running ? '暂停' : '开始'"
         @click="start"
       >
-        <Pause v-if="pomodoro.running" class="size-4" aria-hidden="true" />
-        <Play v-else class="size-4" aria-hidden="true" />
+        <PanelDetailIcon name="pause" style="width: 20px; height: 20px" v-if="pomodoro.running" />
+        <PanelDetailIcon name="play" style="width: 20px; height: 20px" v-else />
         {{ pomodoro.running ? '暂停' : '开始' }}
       </Button>
       <AlertDialog><AlertDialogTrigger as-child><Button
         variant="secondary"
         size="sm"
-        class="h-10 gap-1.5 rounded-full px-4 text-sm"
+        class="h-8 gap-1.5 rounded-full px-4 text-sm"
         aria-label="结束并重置"
       >
-        <RotateCcw class="size-4" aria-hidden="true" />
+        <PanelDetailIcon name="reset" style="width: 20px; height: 20px" />
         结束
       </Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>结束本轮计时？</AlertDialogTitle><AlertDialogDescription>当前进度和已完成轮次会重置。</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction class="bg-destructive text-destructive-foreground" @click="pomodoro.reset()">结束</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>

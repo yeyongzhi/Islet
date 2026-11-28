@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { ImageOff } from 'lucide-vue-next'
+import PanelDetailIcon from '@/components/island/PanelDetailIcon.vue'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -36,7 +36,7 @@ onBeforeUnmount(() => { generation++ })
         <ContextMenuTrigger as-child>
           <Button variant="ghost" class="aspect-square h-auto w-full overflow-hidden rounded-lg bg-muted p-0" :aria-label="`打开图片 ${path.split(/[\\/]/).pop()}`" @click="open(path)">
             <img v-if="sources[path]" :src="sources[path]" :alt="path.split(/[\\/]/).pop()" class="size-full object-cover" />
-            <ImageOff v-else class="size-4 text-muted-foreground" aria-label="图片读取中或不可用" />
+            <PanelDetailIcon name="gallery" />
           </Button>
         </ContextMenuTrigger>
         <ContextMenuContent><ContextMenuGroup>
